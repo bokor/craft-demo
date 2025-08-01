@@ -1,0 +1,286 @@
+{
+  "table": "products",
+  "columns": [
+    "name",
+    "description",
+    "price",
+    "category_id",
+    "company_id",
+    "sku",
+    "quantity",
+    "status"
+  ],
+  "values": [
+    [
+      "iPhone 15 Pro",
+      "Latest Apple smartphone with A17 Pro chip",
+      999.99,
+      9,
+      1,
+      "IPH15PRO",
+      50.0,
+      1.0
+    ],
+    [
+      "Samsung Galaxy S24",
+      "Premium Android smartphone with AI features",
+      899.99,
+      9,
+      1,
+      "SAMS24",
+      45.0,
+      1.0
+    ],
+    [
+      "MacBook Air M3",
+      "13-inch laptop with Apple M3 chip",
+      1299.99,
+      10,
+      1,
+      "MBAIRM3",
+      30.0,
+      1.0
+    ],
+    [
+      "Dell XPS 13",
+      "Ultra-thin Windows laptop",
+      1199.99,
+      10,
+      1,
+      "DELLXPS13",
+      25.0,
+      1.0
+    ],
+    [
+      "iPad Air",
+      "10.9-inch tablet with M2 chip",
+      599.99,
+      11,
+      1,
+      "IPADAIR",
+      40.0,
+      1.0
+    ],
+    [
+      "Samsung Galaxy Tab S9",
+      "Android tablet with S Pen",
+      699.99,
+      11,
+      1,
+      "SAMS9TAB",
+      35.0,
+      1.0
+    ],
+    [
+      "Apple Watch Series 9",
+      "Smartwatch with health monitoring",
+      399.99,
+      12,
+      1,
+      "AWATCH9",
+      60.0,
+      1.0
+    ],
+    [
+      "Fitbit Sense 2",
+      "Advanced fitness smartwatch",
+      299.99,
+      12,
+      1,
+      "FITBITS2",
+      55.0,
+      1.0
+    ],
+    [
+      "Nest Learning Thermostat",
+      "Smart home temperature control",
+      249.99,
+      13,
+      1,
+      "NESTTH",
+      20.0,
+      1.0
+    ],
+    [
+      "Philips Hue Starter Kit",
+      "Smart LED lighting system",
+      199.99,
+      13,
+      1,
+      "PHILHUE",
+      30.0,
+      1.0
+    ],
+    [
+      "Nike Air Max 270",
+      "Comfortable running shoes",
+      150.0,
+      15,
+      1,
+      "NIKE270",
+      100.0,
+      1.0
+    ],
+    [
+      "Adidas Ultraboost 22",
+      "Premium running shoes",
+      180.0,
+      15,
+      1,
+      "ADIDUB22",
+      80.0,
+      1.0
+    ],
+    [
+      "Levi's 501 Jeans",
+      "Classic straight-fit denim",
+      89.99,
+      14,
+      1,
+      "LEVI501",
+      200.0,
+      1.0
+    ],
+    [
+      "H&M Basic T-Shirt",
+      "Cotton crew neck t-shirt",
+      19.99,
+      14,
+      1,
+      "HMTEE",
+      500.0,
+      1.0
+    ],
+    [
+      "Ray-Ban Aviator",
+      "Classic pilot sunglasses",
+      159.99,
+      16,
+      1,
+      "RAYAVI",
+      75.0,
+      1.0
+    ],
+    [
+      "Fossil Watch",
+      "Classic leather strap watch",
+      129.99,
+      16,
+      1,
+      "FOSSILW",
+      60.0,
+      1.0
+    ],
+    [
+      "LEGO Star Wars Set",
+      "Millennium Falcon building kit",
+      159.99,
+      6,
+      1,
+      "LEGOSW",
+      25.0,
+      1.0
+    ],
+    [
+      "Barbie Dreamhouse",
+      "3-story dollhouse playset",
+      299.99,
+      6,
+      1,
+      "BARBIEDH",
+      15.0,
+      1.0
+    ],
+    [
+      "The Great Gatsby",
+      "Classic novel by F. Scott Fitzgerald",
+      12.99,
+      5,
+      1,
+      "GATSBY",
+      100.0,
+      1.0
+    ],
+    [
+      "Harry Potter Box Set",
+      "Complete 7-book series",
+      89.99,
+      5,
+      1,
+      "HARRYPOT",
+      50.0,
+      1.0
+    ],
+    [
+      "IKEA Malm Bed Frame",
+      "Queen size bed with storage",
+      299.99,
+      7,
+      1,
+      "IKMALM",
+      20.0,
+      1.0
+    ],
+    [
+      "West Elm Sofa",
+      "Modern 3-seater couch",
+      899.99,
+      7,
+      1,
+      "WESTSOF",
+      10.0,
+      1.0
+    ],
+    [
+      "Carter's Onesie Set",
+      "Baby bodysuit 3-pack",
+      24.99,
+      4,
+      1,
+      "CARTON",
+      150.0,
+      1.0
+    ],
+    [
+      "Fisher-Price Rocker",
+      "Baby bouncer seat",
+      79.99,
+      4,
+      1,
+      "FISHROCK",
+      30.0,
+      1.0
+    ],
+    ["Zara Blouse", "Women's silk blouse", 59.99, 14, 1, "ZARABLO", 120.0, 1.0],
+    [
+      "Michael Kors Handbag",
+      "Leather crossbody bag",
+      199.99,
+      16,
+      1,
+      "MKHANDB",
+      40.0,
+      1.0
+    ],
+    [
+      "Starbucks Gift Card",
+      "$50 digital gift card",
+      50.0,
+      8,
+      1,
+      "SBUXGC",
+      200.0,
+      1.0
+    ],
+    [
+      "Amazon Echo Dot",
+      "Smart speaker with Alexa",
+      49.99,
+      13,
+      1,
+      "ECHODOT",
+      100.0,
+      1.0
+    ]
+  ]
+}

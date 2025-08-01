@@ -1,0 +1,14 @@
+{
+    "table": "customers",
+    "columns": [
+        "first_name",
+        "last_name",
+        "email",
+        "phone_number"
+    ],
+    "values": [
+        ["John", "Doe", "jon.doe@test.com", "123-456-7890"],
+        ["Jane", "Smith", "jane.smith@test.com", "987-654-3210"],
+        ["Alice", "Johnson", "alice.johnson@test.com", "555-123-4567"]
+    ]
+}

@@ -1,0 +1,25 @@
+{
+    "table": "categories",
+    "columns": [
+        "name",
+        "parent_id"
+    ],
+    "values": [
+        ["Electronics", null],
+        ["Men's", null],
+        ["Women's", null],
+        ["Children's", null],
+        ["Books", null],
+        ["Toys", null],
+        ["Furniture", null],
+        ["Other", null],
+        ["Smartphones", 1],
+        ["Laptops", 1],
+        ["Tablets", 1],
+        ["Smartwatches", 1],
+        ["Smart Home", 1],
+        ["Clothing", 2],
+        ["Shoes", 2],
+        ["Accessories", 2]
+    ]
+}
