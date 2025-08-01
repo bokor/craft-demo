@@ -1,0 +1,59 @@
+basePath: /api/v1
+definitions:
+  services.CategoryTotal:
+    properties:
+      category_name:
+        type: string
+      total_amount:
+        type: number
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: A set of APIs for generating reports for the Craft Demo.
+  title: Craft Demo Reporting API
+  version: "1.0"
+paths:
+  /sales/report/category:
+    get:
+      consumes:
+      - application/json
+      description: Returns aggregated sales data by date and category with calculated
+        total amounts
+      parameters:
+      - description: Start date in YYYY-MM-DD format (defaults to 30 days ago)
+        in: query
+        name: start_date
+        type: string
+      - description: End date in YYYY-MM-DD format (defaults to today)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Sales report data with dates as keys and category arrays as
+            values
+          schema:
+            additionalProperties:
+              items:
+                $ref: '#/definitions/services.CategoryTotal'
+              type: array
+            type: object
+        "400":
+          description: Bad request - invalid date format
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get sales report by category
+      tags:
+      - sales
+swagger: "2.0"

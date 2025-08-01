@@ -1,0 +1,49 @@
+/* Custom styles for Sales Dashboard */
+body {
+  background-color: #f8f9fa;
+}
+
+.tremor-Card {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  border: none;
+  border-radius: 0.5rem;
+}
+
+.tremor-Card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.card {
+  border: none;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  border-radius: 0.5rem;
+}
+
+.btn-primary {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.btn-primary:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.form-control:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+}
+
+/* Loading state */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
