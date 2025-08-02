@@ -20,6 +20,9 @@ craft-demo/
 │   ├── src/
 │   │   ├── components/     # React components
 │   │   └── App.tsx         # Main application
+├── cmd/
+│   └── server/             # Server application
+│       └── main.go         # Main server entry point
 ├── services/               # Go backend services
 │   ├── sales_forecast.go   # AI forecasting service
 │   └── sales_report.go     # Sales reporting service
@@ -27,8 +30,7 @@ craft-demo/
 │   ├── migrations/         # Database migrations
 │   └── seeds/              # Sample data seeding
 ├── batch/                  # Batch processing scripts
-├── docs/                   # API documentation
-└── server.go               # Main server entry point
+└── docs/                   # API documentation
 ```
 
 ## 🛠️ Technology Stack
@@ -240,7 +242,7 @@ make all
 
 - **`services/sales_forecast.go`**: AI-powered sales forecasting with ChatGPT integration
 - **`services/sales_report_by_category.go`**: Sales reporting and analytics
-- **`server.go`**: Main server with Echo framework and middleware
+- **`cmd/server/main.go`**: Main server with Echo framework and middleware
 
 #### Frontend Components
 

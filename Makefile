@@ -19,15 +19,15 @@ app-build:
 # Combined development (run both backend and frontend)
 dev:
 	@echo "Starting backend server..."
-	@go run server.go &
+	@go run cmd/server/main.go &
 	@echo "Starting frontend development server..."
 	@cd app && npm run dev
 
 server:
-	go run server.go
+	go run cmd/server/main.go
 
 generate-docs:
-	swag init -g server.go
+	swag init -g cmd/server/main.go
 
 migrate-db:
 	goose up
