@@ -45,7 +45,7 @@ const formatCurrency = (amount: number): string => {
 
 function App() {
   const [salesData, setSalesData] = useState<SalesData>({})
-  const [forecastData, setForecastData] = useState<ForecastResponse | null>(null)
+  const [forecastCache, setForecastCache] = useState<Record<string, ForecastResponse>>({})
   const [isGeneratingForecast, setIsGeneratingForecast] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [startDate, setStartDate] = useState('')
@@ -93,10 +93,10 @@ function App() {
     }
   }, [startDate, endDate, fetchSalesData])
 
-  // Clear forecast data when time period changes (since we need to regenerate)
+  // Clear forecast cache when date range changes (since data changes)
   useEffect(() => {
-    setForecastData(null)
-  }, [timePeriod])
+    setForecastCache({})
+  }, [startDate, endDate])
 
   // Group data by time period
   const groupDataByPeriod = (data: SalesData, period: TimePeriod) => {
@@ -177,6 +177,9 @@ function App() {
   const prepareCombinedChartData = (): ChartDataPoint[] => {
     const actualData = prepareTimeSeriesData()
 
+    // Get forecast data from cache for current time period
+    const forecastData = forecastCache[timePeriod]
+
     if (!forecastData) {
       return actualData.map(point => ({
         period: point.period,
@@ -253,7 +256,11 @@ function App() {
       const forecastResult: ForecastResponse = await response.json()
       console.log('Forecast result:', forecastResult)
 
-      setForecastData(forecastResult)
+      // Cache the forecast result for this time period
+      setForecastCache(prev => ({
+        ...prev,
+        [timePeriod]: forecastResult
+      }))
     } catch (err) {
       console.error('Error generating forecast:', err)
       setError(err instanceof Error ? err.message : 'Failed to generate forecast')
@@ -267,10 +274,10 @@ function App() {
   console.log('Time period:', timePeriod)
   console.log('Sample data point:', timeSeriesData[0])
   console.log('Data structure valid:', timeSeriesData.length > 0 && timeSeriesData[0]?.period && typeof timeSeriesData[0]?.total === 'number')
-  console.log('Forecast data:', forecastData)
-  console.log('Forecast time period:', forecastData?.timePeriod)
+  console.log('Forecast cache:', forecastCache)
+  console.log('Current forecast data:', forecastCache[timePeriod])
   console.log('Combined chart data:', combinedChartData)
-  console.log('Raw ChatGPT response:', forecastData?.rawResponse)
+  console.log('Raw ChatGPT response:', forecastCache[timePeriod]?.rawResponse)
 
   const totalSales = Object.values(salesData).flat().reduce((sum, category) => sum + category.total_amount, 0)
   const positiveSales = Object.values(salesData).flat().reduce((sum, category) => sum + Math.max(0, category.total_amount), 0)
@@ -347,12 +354,12 @@ function App() {
                     <Form.Label>&nbsp;</Form.Label>
                     <Button
                       onClick={generateForecast}
-                      disabled={isGeneratingForecast || timeSeriesData.length === 0}
+                      disabled={isGeneratingForecast || timeSeriesData.length === 0 || !!forecastCache[timePeriod]}
                       variant="success"
                       className="w-100"
                       size="sm"
                     >
-                      {isGeneratingForecast ? 'Generating...' : 'Generate Forecast'}
+                      {isGeneratingForecast ? 'Generating...' : forecastCache[timePeriod] ? 'Forecast Generated' : 'Generate Forecast'}
                     </Button>
                   </Form.Group>
                 </Col>
@@ -407,10 +414,10 @@ function App() {
           <Card>
             <Card.Body>
               <h5>{getPeriodLabel(timePeriod)} Sales Trend</h5>
-              {forecastData && (
+              {forecastCache[timePeriod] && (
                 <div className="mb-2">
                   <small className="text-muted">
-                    Forecast data available for {getPeriodLabel(forecastData.timePeriod as TimePeriod)} period.
+                    Forecast data available for {getPeriodLabel(forecastCache[timePeriod].timePeriod as TimePeriod)} period.
                   </small>
                 </div>
               )}
@@ -426,7 +433,7 @@ function App() {
                   <Tooltip formatter={chartTooltipFormatter} />
                   <Legend />
                   <Line type="monotone" dataKey="total" stroke="#8884d8" name="Actual Sales" />
-                  {forecastData && forecastData.forecast && forecastData.forecast.length > 0 && (
+                  {forecastCache[timePeriod] && forecastCache[timePeriod].forecast && forecastCache[timePeriod].forecast.length > 0 && (
                     <Line type="monotone" dataKey="forecast" stroke="#ff7300" strokeDasharray="5 5" name="Forecast" />
                   )}
                 </LineChart>
@@ -500,14 +507,14 @@ function App() {
               </Row>
 
       {/* Debug Section - Raw ChatGPT Response */}
-      {forecastData?.rawResponse && (
+      {forecastCache[timePeriod]?.rawResponse && (
         <Row className="mb-4">
           <Col>
             <Card>
               <Card.Body>
                 <h5>Raw ChatGPT Response</h5>
                 <pre style={{ fontSize: '12px', maxHeight: '200px', overflow: 'auto' }}>
-                  {forecastData.rawResponse}
+                  {forecastCache[timePeriod].rawResponse}
                 </pre>
               </Card.Body>
             </Card>
