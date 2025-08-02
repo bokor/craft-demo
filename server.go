@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/rdbell/echo-pretty-logger"
 	"golang.org/x/net/http2"
 
 	echoSwagger "github.com/swaggo/echo-swagger"
@@ -26,7 +27,7 @@ func main() {
 
 	// add middleware
 	e.Use(middleware.CORS())
-	e.Use(middleware.Logger())
+	e.Use(prettylogger.Logger)
 	e.Use(middleware.Recover())
 
 	// Group level middleware
