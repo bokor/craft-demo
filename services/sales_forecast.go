@@ -31,9 +31,8 @@ type TimeSeriesPoint struct {
 
 // ForecastResponse represents the response from the forecast service
 type ForecastResponse struct {
-	Daily       []TimeSeriesPoint `json:"daily,omitempty"`
-	Weekly      []TimeSeriesPoint `json:"weekly,omitempty"`
-	Monthly     []TimeSeriesPoint `json:"monthly,omitempty"`
+	Forecast    []TimeSeriesPoint `json:"forecast"`
+	TimePeriod  string            `json:"timePeriod"`
 	Message     string            `json:"message"`
 	RawResponse string            `json:"rawResponse,omitempty"`
 }
@@ -58,13 +57,6 @@ type ChatGPTResponse struct {
 // Choice represents a choice in the ChatGPT response
 type Choice struct {
 	Message Message `json:"message"`
-}
-
-// MultiPeriodForecast represents the multi-period forecast response from ChatGPT
-type MultiPeriodForecast struct {
-	Daily   []TimeSeriesPoint `json:"daily"`
-	Weekly  []TimeSeriesPoint `json:"weekly"`
-	Monthly []TimeSeriesPoint `json:"monthly"`
 }
 
 // GenerateSalesForecast handles the API request for sales forecasting
@@ -99,23 +91,26 @@ func GenerateSalesForecast(c echo.Context) error {
 		})
 	}
 
-	// Generate forecasts for all time periods in a single ChatGPT call
-	response := ForecastResponse{
-		Message: "Forecasts generated successfully",
+	// Determine the time period to forecast (default to month if not specified)
+	timePeriod := request.TimePeriod
+	if timePeriod == "" {
+		timePeriod = "month"
 	}
 
-	// Generate all forecasts using ChatGPT
-	forecasts, rawResponse, err := generateMultiPeriodForecastWithChatGPT(request)
+	// Generate forecast for the specific time period
+	response := ForecastResponse{
+		TimePeriod: timePeriod,
+		Message:    "Forecast generated successfully",
+	}
+
+	// Generate forecast using ChatGPT
+	forecast, rawResponse, err := generateForecastForPeriod(request, timePeriod)
 	if err != nil {
-		log.Printf("Failed to generate forecasts: %v", err)
-		// Fallback to simple forecasts for each period
-		response.Daily = generateSimpleForecast(createRequestForPeriod(request, "day"))
-		response.Weekly = generateSimpleForecast(createRequestForPeriod(request, "week"))
-		response.Monthly = generateSimpleForecast(createRequestForPeriod(request, "month"))
+		log.Printf("Failed to generate forecast: %v", err)
+		// Fallback to simple forecast
+		response.Forecast = generateSimpleForecast(createRequestForPeriod(request, timePeriod))
 	} else {
-		response.Daily = forecasts.Daily
-		response.Weekly = forecasts.Weekly
-		response.Monthly = forecasts.Monthly
+		response.Forecast = forecast
 		response.RawResponse = rawResponse
 	}
 
@@ -130,59 +125,39 @@ func createRequestForPeriod(request ForecastRequest, timePeriod string) Forecast
 	return newRequest
 }
 
-// generateMultiPeriodForecastWithChatGPT sends data to ChatGPT for multi-period forecasting
-func generateMultiPeriodForecastWithChatGPT(request ForecastRequest) (*MultiPeriodForecast, string, error) {
+// generateForecastForPeriod sends data to ChatGPT for forecasting a specific time period
+func generateForecastForPeriod(request ForecastRequest, timePeriod string) ([]TimeSeriesPoint, string, error) {
 	// Get ChatGPT API key from environment
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
 		log.Printf("No OpenAI API key found, using simple forecast")
 		// If no API key, generate a simple forecast based on trend
-		forecasts := &MultiPeriodForecast{
-			Daily:   generateSimpleForecast(createRequestForPeriod(request, "day")),
-			Weekly:  generateSimpleForecast(createRequestForPeriod(request, "week")),
-			Monthly: generateSimpleForecast(createRequestForPeriod(request, "month")),
-		}
-		return forecasts, "Simple forecast generated (no API key)", nil
+		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (no API key)", nil
 	}
 
 	// Check if we have a valid API key
 	if apiKey == "" || len(apiKey) < 10 {
 		log.Printf("No valid OpenAI API key found, using simple forecast")
-		forecasts := &MultiPeriodForecast{
-			Daily:   generateSimpleForecast(createRequestForPeriod(request, "day")),
-			Weekly:  generateSimpleForecast(createRequestForPeriod(request, "week")),
-			Monthly: generateSimpleForecast(createRequestForPeriod(request, "month")),
-		}
-		return forecasts, "Simple forecast generated (invalid API key)", nil
+		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (invalid API key)", nil
 	}
 
 	// Validate API key format (should start with sk-)
 	if len(apiKey) < 3 || apiKey[:3] != "sk-" {
 		log.Printf("Invalid OpenAI API key format, using simple forecast")
-		forecasts := &MultiPeriodForecast{
-			Daily:   generateSimpleForecast(createRequestForPeriod(request, "day")),
-			Weekly:  generateSimpleForecast(createRequestForPeriod(request, "week")),
-			Monthly: generateSimpleForecast(createRequestForPeriod(request, "month")),
-		}
-		return forecasts, "Simple forecast generated (invalid API key format)", nil
+		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (invalid API key format)", nil
 	}
 
-	log.Printf("Using ChatGPT for multi-period forecasting with API key: %s...", apiKey[:7])
+	log.Printf("Using ChatGPT for %s forecasting with API key: %s...", timePeriod, apiKey[:7])
 
 	// Test the API first
 	if err := testOpenAIAPI(apiKey); err != nil {
 		log.Printf("OpenAI API test failed: %v", err)
 		log.Printf("Falling back to simple forecast")
-		forecasts := &MultiPeriodForecast{
-			Daily:   generateSimpleForecast(createRequestForPeriod(request, "day")),
-			Weekly:  generateSimpleForecast(createRequestForPeriod(request, "week")),
-			Monthly: generateSimpleForecast(createRequestForPeriod(request, "month")),
-		}
-		return forecasts, "Simple forecast generated (API test failed)", nil
+		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (API test failed)", nil
 	}
 
 	// Prepare the prompt for ChatGPT
-	prompt := buildMultiPeriodForecastPrompt(request)
+	prompt := buildForecastPromptForPeriod(request, timePeriod)
 
 	// Create ChatGPT request
 	chatGPTRequest := ChatGPTRequest{
@@ -190,7 +165,7 @@ func generateMultiPeriodForecastWithChatGPT(request ForecastRequest) (*MultiPeri
 		Messages: []Message{
 			{
 				Role:    "system",
-				Content: "You are a data analyst specializing in time series forecasting. Provide forecasts in JSON format with 'daily', 'weekly', and 'monthly' arrays containing objects with 'period' and 'total' fields.",
+				Content: "You are a data analyst specializing in time series forecasting. Provide forecasts in JSON format with an array of objects containing 'period' and 'total' fields.",
 			},
 			{
 				Role:    "user",
@@ -204,32 +179,22 @@ func generateMultiPeriodForecastWithChatGPT(request ForecastRequest) (*MultiPeri
 	if err != nil {
 		log.Printf("ChatGPT request failed: %v", err)
 		// Fallback to simple forecast
-		forecasts := &MultiPeriodForecast{
-			Daily:   generateSimpleForecast(createRequestForPeriod(request, "day")),
-			Weekly:  generateSimpleForecast(createRequestForPeriod(request, "week")),
-			Monthly: generateSimpleForecast(createRequestForPeriod(request, "month")),
-		}
-		return forecasts, "Simple forecast generated (ChatGPT request failed)", nil
+		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (ChatGPT request failed)", nil
 	}
 
 	// Parse ChatGPT response
-	forecasts, rawResponse, err := parseMultiPeriodChatGPTResponse(response)
+	forecast, rawResponse, err := parseSinglePeriodChatGPTResponse(response)
 	if err != nil {
 		log.Printf("Failed to parse ChatGPT response: %v", err)
 		// Fallback to simple forecast
-		forecasts := &MultiPeriodForecast{
-			Daily:   generateSimpleForecast(createRequestForPeriod(request, "day")),
-			Weekly:  generateSimpleForecast(createRequestForPeriod(request, "week")),
-			Monthly: generateSimpleForecast(createRequestForPeriod(request, "month")),
-		}
-		return forecasts, "Simple forecast generated (parsing failed)", nil
+		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (parsing failed)", nil
 	}
 
-	return forecasts, rawResponse, nil
+	return forecast, rawResponse, nil
 }
 
-// buildMultiPeriodForecastPrompt creates the prompt for multi-period ChatGPT forecasting
-func buildMultiPeriodForecastPrompt(request ForecastRequest) string {
+// buildForecastPromptForPeriod creates the prompt for single-period ChatGPT forecasting
+func buildForecastPromptForPeriod(request ForecastRequest, timePeriod string) string {
 	// Filter to only include the past 12 months of data
 	filteredData := filterToLast12Months(request.TimeSeriesData)
 
@@ -240,34 +205,80 @@ func buildMultiPeriodForecastPrompt(request ForecastRequest) string {
 	}
 	xmlData += "</historical_data>"
 
+	// Filter data based on the requested time period
+	var periodData []TimeSeriesPoint
+	switch timePeriod {
+	case "day":
+		periodData = filterToDailyData(filteredData)
+	case "week":
+		periodData = filterToWeeklyData(filteredData)
+	case "month":
+		periodData = filteredData // Already monthly data
+	default:
+		periodData = filteredData
+	}
+
+	// Convert time series data to XML format
+	xmlData = "<historical_data>\n"
+	for _, point := range periodData {
+		xmlData += fmt.Sprintf("  <data_point>\n    <period>%s</period>\n    <total>%.2f</total>\n  </data_point>\n", point.Period, point.Total)
+	}
+	xmlData += "</historical_data>"
+
+	// Get forecast periods based on time period
+	forecastPeriods := getForecastPeriods(timePeriod)
+	var periodLabel string
+	switch timePeriod {
+	case "day":
+		periodLabel = "daily"
+	case "week":
+		periodLabel = "weekly"
+	case "month":
+		periodLabel = "monthly"
+	default:
+		periodLabel = "period"
+	}
+
 	prompt := fmt.Sprintf(`
-You are a data analyst specializing in time series forecasting.  You are given a historical sales data for a single category.
-Using historical sales data, provide a daily, weekly, and monthly sales forecast, highlighting potential seasonal fluctuations.
-Please only return the next 14 days for daily, the next 4 weeks for weekly, and the next 6 months for monthly.
+You are a data analyst specializing in time series forecasting. You are given historical %s sales data for a single category.
+Using this historical data, provide a %s sales forecast for the next %d periods, highlighting potential seasonal fluctuations.
 
 Things to consider:
- - Sales data is for a single category of multiple products for a month.
+ - Sales data is for a single category of multiple products.
  - The response should follow the JSON format below.
  - Consider trends, seasonality, and patterns in the data.
- - Remove any data points that are anomolies or outliers.
+ - Remove any data points that are anomalies or outliers.
 
 <historical_data>
 %s
 </historical_data>
 
 Please provide the forecast in JSON response format like this:
-{
-  "daily": [{"period": "2024-01-01", "total": 1500.00}, {"period": "2024-01-02", "total": 1600.00}],
-  "weekly": [{"period": "2024-01-01", "total": 1500.00}, {"period": "2024-01-08", "total": 1600.00}],
-  "monthly": [{"period": "2024-01", "total": 1500.00}, {"period": "2024-02", "total": 1600.00}]
-}
+[
+  {"period": "2024-01-01", "total": 1500.00},
+  {"period": "2024-01-02", "total": 1600.00}
+]
 
 Consider trends, seasonality, and patterns in the data.`,
-		xmlData)
+		periodLabel, periodLabel, forecastPeriods, xmlData)
 
-	log.Printf("Generated multi-period prompt: %s", prompt)
+	log.Printf("Generated %s forecast prompt: %s", timePeriod, prompt)
 
 	return prompt
+}
+
+// filterToDailyData filters data to daily format (placeholder - assumes data is already daily)
+func filterToDailyData(data []TimeSeriesPoint) []TimeSeriesPoint {
+	// For now, assume data is already in the correct format
+	// In a real implementation, you might need to aggregate or disaggregate data
+	return data
+}
+
+// filterToWeeklyData filters data to weekly format (placeholder - assumes data is already weekly)
+func filterToWeeklyData(data []TimeSeriesPoint) []TimeSeriesPoint {
+	// For now, assume data is already in the correct format
+	// In a real implementation, you might need to aggregate or disaggregate data
+	return data
 }
 
 // sendChatGPTRequest sends a request to the ChatGPT API
@@ -337,49 +348,49 @@ func sendChatGPTRequest(apiKey string, request ChatGPTRequest) (*ChatGPTResponse
 	return &response, nil
 }
 
-// parseMultiPeriodChatGPTResponse parses the multi-period response from ChatGPT
-func parseMultiPeriodChatGPTResponse(response *ChatGPTResponse) (*MultiPeriodForecast, string, error) {
+// parseSinglePeriodChatGPTResponse parses the single-period response from ChatGPT
+func parseSinglePeriodChatGPTResponse(response *ChatGPTResponse) ([]TimeSeriesPoint, string, error) {
 	if len(response.Choices) == 0 {
 		return nil, "", fmt.Errorf("no choices in ChatGPT response")
 	}
 
 	content := response.Choices[0].Message.Content
-	log.Printf("ChatGPT multi-period response content: %s", content)
+	log.Printf("ChatGPT single-period response content: %s", content)
 
 	// Try to extract JSON from the response
-	// Look for JSON object in the content
+	// Look for JSON array in the content
 	start := 0
 	end := len(content)
 
-	// Find the start of JSON object
+	// Find the start of JSON array
 	for i := 0; i < len(content)-1; i++ {
-		if content[i] == '{' {
+		if content[i] == '[' {
 			start = i
 			break
 		}
 	}
 
-	// Find the end of JSON object
+	// Find the end of JSON array
 	for i := len(content) - 1; i > start; i-- {
-		if content[i] == '}' {
+		if content[i] == ']' {
 			end = i + 1
 			break
 		}
 	}
 
 	if start >= end {
-		return nil, content, fmt.Errorf("could not find JSON object in response")
+		return nil, content, fmt.Errorf("could not find JSON array in response")
 	}
 
 	jsonStr := content[start:end]
-	log.Printf("Extracted multi-period JSON: %s", jsonStr)
+	log.Printf("Extracted single-period JSON: %s", jsonStr)
 
-	var forecasts MultiPeriodForecast
-	if err := json.Unmarshal([]byte(jsonStr), &forecasts); err != nil {
-		return nil, content, fmt.Errorf("failed to parse multi-period JSON: %v", err)
+	var forecast []TimeSeriesPoint
+	if err := json.Unmarshal([]byte(jsonStr), &forecast); err != nil {
+		return nil, content, fmt.Errorf("failed to parse single-period JSON: %v", err)
 	}
 
-	return &forecasts, content, nil
+	return forecast, content, nil
 }
 
 // generateSimpleForecast creates a simple forecast based on trend when ChatGPT is not available

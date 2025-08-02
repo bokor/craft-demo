@@ -25,9 +25,8 @@ interface ChartDataPoint {
 }
 
 interface ForecastResponse {
-  daily: ForecastData[]
-  weekly: ForecastData[]
-  monthly: ForecastData[]
+  forecast: ForecastData[]
+  timePeriod: string
   message: string
   rawResponse?: string
 }
@@ -185,19 +184,8 @@ function App() {
       }))
     }
 
-    // Get forecast data for the current time period
-    let forecastArray: ForecastData[] = []
-    switch (timePeriod) {
-      case 'day':
-        forecastArray = forecastData.daily || []
-        break
-      case 'week':
-        forecastArray = forecastData.weekly || []
-        break
-      case 'month':
-        forecastArray = forecastData.monthly || []
-        break
-    }
+    // Get forecast data from the response
+    const forecastArray: ForecastData[] = forecastData.forecast || []
 
     if (forecastArray.length === 0) {
       return actualData.map(point => ({
@@ -244,8 +232,8 @@ function App() {
     try {
       // Prepare data for forecasting
       const forecastRequest = {
-        timeSeriesData: timeSeriesData
-        // Backend will generate forecasts for all time periods (daily, weekly, monthly)
+        timeSeriesData: timeSeriesData,
+        timePeriod: timePeriod
       }
 
       console.log('Sending forecast request:', forecastRequest)
@@ -280,6 +268,7 @@ function App() {
   console.log('Sample data point:', timeSeriesData[0])
   console.log('Data structure valid:', timeSeriesData.length > 0 && timeSeriesData[0]?.period && typeof timeSeriesData[0]?.total === 'number')
   console.log('Forecast data:', forecastData)
+  console.log('Forecast time period:', forecastData?.timePeriod)
   console.log('Combined chart data:', combinedChartData)
   console.log('Raw ChatGPT response:', forecastData?.rawResponse)
 
@@ -421,7 +410,7 @@ function App() {
               {forecastData && (
                 <div className="mb-2">
                   <small className="text-muted">
-                    Forecast data available for all time periods. Currently showing {getPeriodLabel(timePeriod)} forecast.
+                    Forecast data available for {getPeriodLabel(forecastData.timePeriod as TimePeriod)} period.
                   </small>
                 </div>
               )}
@@ -437,14 +426,9 @@ function App() {
                   <Tooltip formatter={chartTooltipFormatter} />
                   <Legend />
                   <Line type="monotone" dataKey="total" stroke="#8884d8" name="Actual Sales" />
-                  {forecastData && (() => {
-                    const hasForecastData = (timePeriod === 'day' && forecastData.daily?.length > 0) ||
-                                          (timePeriod === 'week' && forecastData.weekly?.length > 0) ||
-                                          (timePeriod === 'month' && forecastData.monthly?.length > 0)
-                    return hasForecastData ? (
-                      <Line type="monotone" dataKey="forecast" stroke="#ff7300" strokeDasharray="5 5" name="Forecast" />
-                    ) : null
-                  })()}
+                  {forecastData && forecastData.forecast && forecastData.forecast.length > 0 && (
+                    <Line type="monotone" dataKey="forecast" stroke="#ff7300" strokeDasharray="5 5" name="Forecast" />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </Card.Body>
