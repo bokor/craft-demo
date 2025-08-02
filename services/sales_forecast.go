@@ -228,74 +228,6 @@ func generateMultiPeriodForecastWithChatGPT(request ForecastRequest) (*MultiPeri
 	return forecasts, rawResponse, nil
 }
 
-// generateForecastWithChatGPT sends data to ChatGPT for forecasting
-func generateForecastWithChatGPT(request ForecastRequest) ([]TimeSeriesPoint, error) {
-	// Get ChatGPT API key from environment
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		log.Printf("No OpenAI API key found, using simple forecast")
-		// If no API key, generate a simple forecast based on trend
-		return generateSimpleForecast(request), nil
-	}
-
-	// Check if we have a valid API key
-	if apiKey == "" || len(apiKey) < 10 {
-		log.Printf("No valid OpenAI API key found, using simple forecast")
-		return generateSimpleForecast(request), nil
-	}
-
-	// Validate API key format (should start with sk-)
-	if len(apiKey) < 3 || apiKey[:3] != "sk-" {
-		log.Printf("Invalid OpenAI API key format, using simple forecast")
-		return generateSimpleForecast(request), nil
-	}
-
-	log.Printf("Using ChatGPT for forecasting with API key: %s...", apiKey[:7])
-
-	// Test the API first
-	if err := testOpenAIAPI(apiKey); err != nil {
-		log.Printf("OpenAI API test failed: %v", err)
-		log.Printf("Falling back to simple forecast")
-		return generateSimpleForecast(request), nil
-	}
-
-	// Prepare the prompt for ChatGPT
-	prompt := buildForecastPrompt(request)
-
-	// Create ChatGPT request
-	chatGPTRequest := ChatGPTRequest{
-		Model: "gpt-3.5-turbo", // Use 3.5-turbo for better compatibility
-		Messages: []Message{
-			{
-				Role:    "system",
-				Content: "You are a data analyst specializing in time series forecasting. Provide forecasts in JSON format with 'period' and 'total' fields.",
-			},
-			{
-				Role:    "user",
-				Content: prompt,
-			},
-		},
-	}
-
-	// Send request to ChatGPT
-	response, err := sendChatGPTRequest(apiKey, chatGPTRequest)
-	if err != nil {
-		log.Printf("ChatGPT request failed: %v", err)
-		// Fallback to simple forecast
-		return generateSimpleForecast(request), nil
-	}
-
-	// Parse ChatGPT response
-	forecast, err := parseChatGPTResponse(response)
-	if err != nil {
-		log.Printf("Failed to parse ChatGPT response: %v", err)
-		// Fallback to simple forecast
-		return generateSimpleForecast(request), nil
-	}
-
-	return forecast, nil
-}
-
 // buildMultiPeriodForecastPrompt creates the prompt for multi-period ChatGPT forecasting
 func buildMultiPeriodForecastPrompt(request ForecastRequest) string {
 	// Filter to only include the past 12 months of data
@@ -310,15 +242,13 @@ func buildMultiPeriodForecastPrompt(request ForecastRequest) string {
 
 	prompt := fmt.Sprintf(`
 You are a data analyst specializing in time series forecasting.  You are given a historical sales data for a single category.
-Using historical sales data, provide a daily, weekly, and monthly sales forecast for the next year, highlighting potential seasonal fluctuations.
+Using historical sales data, provide a daily, weekly, and monthly sales forecast, highlighting potential seasonal fluctuations.
+Please only return the next 14 days for daily, the next 4 weeks for weekly, and the next 6 months for monthly.
 
 Things to consider:
- - Sales data contains multiple products, within a single category for the time_period.
- - Request data is calculated by category by day.
+ - Sales data is for a single category of multiple products for a month.
  - The response should follow the JSON format below.
- - Only return the next 14 days for daily, the next 4 weeks for weekly, and the next 6 months for monthly.
  - Consider trends, seasonality, and patterns in the data.
- - Within the <historical_data>, <period> is the month and <total> is the total sales for that month for a single category.
  - Remove any data points that are anomolies or outliers.
 
 <historical_data>
@@ -336,41 +266,6 @@ Consider trends, seasonality, and patterns in the data.`,
 		xmlData)
 
 	log.Printf("Generated multi-period prompt: %s", prompt)
-
-	return prompt
-}
-
-// buildForecastPrompt creates the prompt for ChatGPT
-func buildForecastPrompt(request ForecastRequest) string {
-	// Filter to only include the past 12 months of data for consistency
-	filteredData := filterToLast12Months(request.TimeSeriesData)
-
-	// Convert time series data to XML format
-	xmlData := "<historical_data>\n"
-	for _, point := range filteredData {
-		xmlData += fmt.Sprintf("  <data_point>\n    <period>%s</period>\n    <total>%.2f</total>\n  </data_point>\n", point.Period, point.Total)
-	}
-	xmlData += "</historical_data>"
-
-	prompt := fmt.Sprintf(`
-Please analyze this time series data and provide a sales forecast for daily, weekly, and monthly timeperiods.
-
-Daily should be the next 14 days, weekly should be the next 4 weeks, and monthly should be the next 6 months.
-
-Historical Data:
-%s
-
-Please provide the forecast in JSON response format like this:
-[
-  "daily": [{"period": "2024-01", "total": 1500.00}, {"period": "2024-02", "total": 1600.00}],
-  "weekly": [{"period": "2024-01", "total": 1500.00}, {"period": "2024-02", "total": 1600.00}],
-  "monthly": [{"period": "2024-01", "total": 1500.00}, {"period": "2024-02", "total": 1600.00}]
-]
-
-Consider trends, seasonality, and patterns in the data.`,
-		xmlData)
-
-	log.Printf("Generated prompt: %s", prompt)
 
 	return prompt
 }
@@ -485,50 +380,6 @@ func parseMultiPeriodChatGPTResponse(response *ChatGPTResponse) (*MultiPeriodFor
 	}
 
 	return &forecasts, content, nil
-}
-
-// parseChatGPTResponse parses the response from ChatGPT
-func parseChatGPTResponse(response *ChatGPTResponse) ([]TimeSeriesPoint, error) {
-	if len(response.Choices) == 0 {
-		return nil, fmt.Errorf("no choices in ChatGPT response")
-	}
-
-	content := response.Choices[0].Message.Content
-	log.Printf("ChatGPT response content: %s", content)
-
-	// Try to extract JSON from the response
-	// Look for JSON array in the content
-	start := 0
-	end := len(content)
-
-	// Find the start of JSON array
-	for i := 0; i < len(content)-1; i++ {
-		if content[i] == '[' {
-			start = i
-			break
-		}
-	}
-
-	// Find the end of JSON array
-	for i := len(content) - 1; i > start; i-- {
-		if content[i] == ']' {
-			end = i + 1
-			break
-		}
-	}
-
-	if start >= end {
-		return nil, fmt.Errorf("could not find JSON array in response")
-	}
-
-	jsonStr := content[start:end]
-	log.Printf("Extracted JSON: %s", jsonStr)
-	var forecast []TimeSeriesPoint
-	if err := json.Unmarshal([]byte(content), &forecast); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON: %v", err)
-	}
-
-	return forecast, nil
 }
 
 // generateSimpleForecast creates a simple forecast based on trend when ChatGPT is not available
