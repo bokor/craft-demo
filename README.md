@@ -37,6 +37,7 @@ craft-demo/
 - **Go 1.24.5**: High-performance server-side language
 - **Echo Framework**: Fast HTTP web framework
 - **PostgreSQL**: Primary database
+- **Goose**: Database migration tool
 - **Swagger**: API documentation
 - **ChatGPT API**: AI-powered forecasting
 
@@ -53,6 +54,7 @@ craft-demo/
 - Node.js 18+ and npm
 - PostgreSQL 12+
 - Git
+- Goose (for database migrations)
 
 ## 🚀 Quick Start
 
@@ -68,6 +70,12 @@ cd craft-demo
 Create a `.env` file in the root directory:
 
 ```env
+# Goose Env Variables
+GOOSE_DRIVER=postgres
+GOOSE_DBSTRING=postgres://postgres:your_password@localhost:5432/craft_demo
+GOOSE_MIGRATION_DIR=./db/migrations
+GOOSE_TABLE=db_migrations
+
 # Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
@@ -87,6 +95,9 @@ PORT=8080
 ```bash
 # Create PostgreSQL database
 createdb craft_demo
+
+# Run database migrations
+goose up
 
 # Seed the database with sample data
 make seed-db
@@ -243,7 +254,7 @@ make all
 #### Database
 
 - **`db/seeds/`**: Sample data for testing and development
-- **`db/migrations/`**: Database schema migrations
+- **`db/migrations/`**: Goose database schema migrations
 - **`batch/generate_sales_totals.go`**: Data warehouse population script
 
 ## 🔧 Configuration
@@ -259,6 +270,30 @@ make all
 | `DB_NAME` | Database name | craft_demo |
 | `OPENAI_API_KEY` | OpenAI API key for forecasting | - |
 | `PORT` | Server port | 8080 |
+| `GOOSE_DRIVER` | Database driver for migrations | postgres |
+| `GOOSE_DBSTRING` | Database connection string for migrations | postgres://postgres:password@localhost:5432/craft_demo |
+| `GOOSE_MIGRATION_DIR` | Directory containing migration files | ./db/migrations |
+| `GOOSE_TABLE` | Migration tracking table name | db_migrations |
+
+### Database Migrations
+
+The project uses Goose for database migrations. Migration files are located in `db/migrations/` and include:
+
+- Table creation for categories, products, customers, companies
+- Sales transaction tables
+- Data warehouse table for aggregated sales data
+
+To run migrations manually:
+```bash
+# Apply all migrations
+goose up
+
+# Rollback last migration
+goose down
+
+# Check migration status
+goose status
+```
 
 ### API Authentication
 

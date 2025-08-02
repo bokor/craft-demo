@@ -1,6 +1,6 @@
 # Makefile for Craft Demo
 
-.PHONY: all generate-sales-totals app-install app-dev app-build generate-docs seed-db dev server
+.PHONY: all generate-sales-totals app-install app-dev app-build generate-docs seed-db dev server migrate-db
 
 # Generate sales totals data for the data warehouse table
 generate-sales-totals:
@@ -28,6 +28,9 @@ server:
 
 generate-docs:
 	swag init -g server.go
+
+migrate-db:
+	goose up
 
 seed-db:
 	go run db/seeds/seed.go
