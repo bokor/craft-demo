@@ -205,26 +205,6 @@ func buildForecastPromptForPeriod(request ForecastRequest, timePeriod string) st
 	}
 	xmlData += "</historical_data>"
 
-	// Filter data based on the requested time period
-	var periodData []TimeSeriesPoint
-	switch timePeriod {
-	case "day":
-		periodData = filterToDailyData(filteredData)
-	case "week":
-		periodData = filterToWeeklyData(filteredData)
-	case "month":
-		periodData = filteredData // Already monthly data
-	default:
-		periodData = filteredData
-	}
-
-	// Convert time series data to XML format
-	xmlData = "<historical_data>\n"
-	for _, point := range periodData {
-		xmlData += fmt.Sprintf("  <data_point>\n    <period>%s</period>\n    <total>%.2f</total>\n  </data_point>\n", point.Period, point.Total)
-	}
-	xmlData += "</historical_data>"
-
 	// Get forecast periods based on time period
 	forecastPeriods := getForecastPeriods(timePeriod)
 	var periodLabel string
@@ -265,20 +245,6 @@ Consider trends, seasonality, and patterns in the data.`,
 	log.Printf("Generated %s forecast prompt: %s", timePeriod, prompt)
 
 	return prompt
-}
-
-// filterToDailyData filters data to daily format (placeholder - assumes data is already daily)
-func filterToDailyData(data []TimeSeriesPoint) []TimeSeriesPoint {
-	// For now, assume data is already in the correct format
-	// In a real implementation, you might need to aggregate or disaggregate data
-	return data
-}
-
-// filterToWeeklyData filters data to weekly format (placeholder - assumes data is already weekly)
-func filterToWeeklyData(data []TimeSeriesPoint) []TimeSeriesPoint {
-	// For now, assume data is already in the correct format
-	// In a real implementation, you might need to aggregate or disaggregate data
-	return data
 }
 
 // sendChatGPTRequest sends a request to the ChatGPT API
