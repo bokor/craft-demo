@@ -12,6 +12,8 @@ definitions:
       periodsToForecast:
         type: integer
       timePeriod:
+        description: TimePeriod is now optional - if not specified, all periods will
+          be generated
         type: string
       timeSeriesData:
         items:
@@ -25,6 +27,10 @@ definitions:
           $ref: '#/definitions/services.TimeSeriesPoint'
         type: array
       message:
+        type: string
+      rawResponse:
+        type: string
+      timePeriod:
         type: string
     type: object
   services.TimeSeriesPoint:
@@ -46,7 +52,7 @@ paths:
       consumes:
       - application/json
       description: Sends time series data to ChatGPT for forecasting and returns predicted
-        values
+        values for daily, weekly, and monthly periods
       parameters:
       - description: Forecast request with time series data
         in: body
@@ -58,7 +64,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Forecast data with predicted values
+          description: Forecast data with predicted values for all time periods
           schema:
             $ref: '#/definitions/services.ForecastResponse'
         "400":

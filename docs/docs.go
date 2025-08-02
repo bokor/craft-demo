@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/sales/forecast": {
             "post": {
-                "description": "Sends time series data to ChatGPT for forecasting and returns predicted values",
+                "description": "Sends time series data to ChatGPT for forecasting and returns predicted values for daily, weekly, and monthly periods",
                 "consumes": [
                     "application/json"
                 ],
@@ -41,7 +41,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Forecast data with predicted values",
+                        "description": "Forecast data with predicted values for all time periods",
                         "schema": {
                             "$ref": "#/definitions/services.ForecastResponse"
                         }
@@ -148,6 +148,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "timePeriod": {
+                    "description": "TimePeriod is now optional - if not specified, all periods will be generated",
                     "type": "string"
                 },
                 "timeSeriesData": {
@@ -168,6 +169,12 @@ const docTemplate = `{
                     }
                 },
                 "message": {
+                    "type": "string"
+                },
+                "rawResponse": {
+                    "type": "string"
+                },
+                "timePeriod": {
                     "type": "string"
                 }
             }
