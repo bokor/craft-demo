@@ -306,15 +306,19 @@ func buildMultiPeriodForecastPrompt(request ForecastRequest) string {
 	xmlData += "</historical_data>"
 
 	prompt := fmt.Sprintf(`
-Please analyze this time series data and provide a sales forecast for daily, weekly, and monthly timeperiods.
+You are a data analyst specializing in time series forecasting.  You are given a historical sales data for a single category.
+Using historical sales data, provide a daily, weekly, and monthly sales forecast for the next year, highlighting potential seasonal fluctuations.
 
-Sales data contains multiple products, within a single category for that time period.
+Things to consider:
+ - Sales data contains multiple products, within a single category for the time_period.
+ - Request data is calculated by category by day.
+ - The response should follow the JSON format below.
+ - Only return the next 14 days for daily, the next 4 weeks for weekly, and the next 6 months for monthly.
+ - Consider trends, seasonality, and patterns in the data.
 
-Daily should be the next 14 days, weekly should be the next 4 weeks, and monthly should be the next 6 months.
-
-Time Period: %s
-Historical Data:
+<historical_data>
 %s
+</historical_data>
 
 Please provide the forecast in JSON response format like this:
 {
@@ -324,7 +328,6 @@ Please provide the forecast in JSON response format like this:
 }
 
 Consider trends, seasonality, and patterns in the data.`,
-		request.TimePeriod,
 		xmlData)
 
 	log.Printf("Generated multi-period prompt: %s", prompt)
