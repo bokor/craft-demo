@@ -1,6 +1,15 @@
-/* Custom styles for Sales Dashboard */
+/*
+   Custom styles for Sales Dashboard
+   Reference: https://design.intuit.com/quickbooks/brand/
+*/
 body {
   background-color: #F4F4EF;
+  font-family: 'Avenir Next', 'Avenir', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* Ensure all elements inherit the font */
+* {
+  font-family: 'Avenir Next', 'Avenir', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
 }
 
 .tremor-Card {
