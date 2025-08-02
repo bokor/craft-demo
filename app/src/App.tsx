@@ -513,7 +513,7 @@ function App() {
             <Card>
               <Card.Body>
                 <h5>Raw ChatGPT Response</h5>
-                <pre style={{ fontSize: '12px', maxHeight: '200px', overflow: 'auto' }}>
+                <pre className="debug-response">
                   {forecastCache[timePeriod].rawResponse}
                 </pre>
               </Card.Body>
