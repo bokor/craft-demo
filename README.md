@@ -350,10 +350,6 @@ docker run -p 8080:8080 craft-demo
 - Update API documentation
 - Ensure code quality and documentation
 
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ## 🆘 Support
 
 For support and questions:
