@@ -15,7 +15,21 @@ interface SalesData {
 
 interface ForecastData {
   period: string
-  forecast: number
+  total: number
+}
+
+interface ChartDataPoint {
+  period: string
+  total: number | null
+  forecast?: number
+}
+
+interface ForecastResponse {
+  daily: ForecastData[]
+  weekly: ForecastData[]
+  monthly: ForecastData[]
+  message: string
+  rawResponse?: string
 }
 
 type TimePeriod = 'day' | 'week' | 'month'
@@ -32,7 +46,7 @@ const formatCurrency = (amount: number): string => {
 
 function App() {
   const [salesData, setSalesData] = useState<SalesData>({})
-  const [forecastData, setForecastData] = useState<ForecastData[]>([])
+  const [forecastData, setForecastData] = useState<ForecastResponse | null>(null)
   const [isGeneratingForecast, setIsGeneratingForecast] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [startDate, setStartDate] = useState('')
@@ -79,6 +93,11 @@ function App() {
       fetchSalesData()
     }
   }, [startDate, endDate, fetchSalesData])
+
+  // Clear forecast data when time period changes (since we need to regenerate)
+  useEffect(() => {
+    setForecastData(null)
+  }, [timePeriod])
 
   // Group data by time period
   const groupDataByPeriod = (data: SalesData, period: TimePeriod) => {
@@ -138,7 +157,7 @@ function App() {
     }
   }
 
-  // Prepare time series data (actual sales only)
+    // Prepare time series data (actual sales only)
   const prepareTimeSeriesData = () => {
     const groupedData = groupDataByPeriod(salesData, timePeriod)
 
@@ -153,19 +172,64 @@ function App() {
       })
   }
 
-  // Prepare forecast data for chart
-  const prepareForecastChartData = () => {
-    if (forecastData.length === 0) return []
 
-    return forecastData.map(forecastPoint => ({
-      period: forecastPoint.period,
-      total: forecastPoint.forecast
+
+    // Combine actual and forecast data for the chart
+  const prepareCombinedChartData = (): ChartDataPoint[] => {
+    const actualData = prepareTimeSeriesData()
+
+    if (!forecastData) {
+      return actualData.map(point => ({
+        period: point.period,
+        total: point.total
+      }))
+    }
+
+    // Get forecast data for the current time period
+    let forecastArray: ForecastData[] = []
+    switch (timePeriod) {
+      case 'day':
+        forecastArray = forecastData.daily || []
+        break
+      case 'week':
+        forecastArray = forecastData.weekly || []
+        break
+      case 'month':
+        forecastArray = forecastData.monthly || []
+        break
+    }
+
+    if (forecastArray.length === 0) {
+      return actualData.map(point => ({
+        period: point.period,
+        total: point.total
+      }))
+    }
+
+    // Combine the data, ensuring forecast starts after actual data ends
+    const combinedData: ChartDataPoint[] = actualData.map(point => ({
+      period: point.period,
+      total: point.total
     }))
+
+    // Add forecast data with null actual values and actual forecast values
+    forecastArray.forEach(forecastPoint => {
+      combinedData.push({
+        period: forecastPoint.period,
+        total: null, // This will be the actual sales line (null for forecast periods)
+        forecast: forecastPoint.total // This will be the forecast line
+      })
+    })
+
+    return combinedData.sort((a, b) => {
+      if (timePeriod === 'month') return a.period.localeCompare(b.period)
+      return new Date(a.period).getTime() - new Date(b.period).getTime()
+    })
   }
 
   const { chartData, categoryTotals } = calculateChartData()
   const timeSeriesData = prepareTimeSeriesData()
-  const forecastChartData = prepareForecastChartData()
+  const combinedChartData = prepareCombinedChartData()
 
   // Generate forecast using ChatGPT service
   const generateForecast = useCallback(async () => {
@@ -180,9 +244,8 @@ function App() {
     try {
       // Prepare data for forecasting
       const forecastRequest = {
-        timeSeriesData: timeSeriesData,
-        timePeriod: timePeriod
-        // periodsToForecast will be determined by the backend based on timePeriod
+        timeSeriesData: timeSeriesData
+        // Backend will generate forecasts for all time periods (daily, weekly, monthly)
       }
 
       console.log('Sending forecast request:', forecastRequest)
@@ -199,10 +262,10 @@ function App() {
         throw new Error(`Forecast request failed: ${response.status}`)
       }
 
-      const forecastResult = await response.json()
+      const forecastResult: ForecastResponse = await response.json()
       console.log('Forecast result:', forecastResult)
 
-      setForecastData(forecastResult.forecast || [])
+      setForecastData(forecastResult)
     } catch (err) {
       console.error('Error generating forecast:', err)
       setError(err instanceof Error ? err.message : 'Failed to generate forecast')
@@ -217,7 +280,8 @@ function App() {
   console.log('Sample data point:', timeSeriesData[0])
   console.log('Data structure valid:', timeSeriesData.length > 0 && timeSeriesData[0]?.period && typeof timeSeriesData[0]?.total === 'number')
   console.log('Forecast data:', forecastData)
-  console.log('Forecast chart data:', forecastChartData)
+  console.log('Combined chart data:', combinedChartData)
+  console.log('Raw ChatGPT response:', forecastData?.rawResponse)
 
   const totalSales = Object.values(salesData).flat().reduce((sum, category) => sum + category.total_amount, 0)
   const positiveSales = Object.values(salesData).flat().reduce((sum, category) => sum + Math.max(0, category.total_amount), 0)
@@ -354,8 +418,15 @@ function App() {
           <Card>
             <Card.Body>
               <h5>{getPeriodLabel(timePeriod)} Sales Trend</h5>
+              {forecastData && (
+                <div className="mb-2">
+                  <small className="text-muted">
+                    Forecast data available for all time periods. Currently showing {getPeriodLabel(timePeriod)} forecast.
+                  </small>
+                </div>
+              )}
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={timeSeriesData} margin={{ left: 80, right: 30, top: 5, bottom: 5 }}>
+                <LineChart data={combinedChartData} margin={{ left: 80, right: 30, top: 5, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
                   <YAxis
@@ -366,9 +437,14 @@ function App() {
                   <Tooltip formatter={chartTooltipFormatter} />
                   <Legend />
                   <Line type="monotone" dataKey="total" stroke="#8884d8" name="Actual Sales" />
-                  {forecastChartData.length > 0 && (
-                    <Line type="monotone" dataKey="total" stroke="#ff7300" strokeDasharray="5 5" name="Forecast" data={forecastChartData} />
-                  )}
+                  {forecastData && (() => {
+                    const hasForecastData = (timePeriod === 'day' && forecastData.daily?.length > 0) ||
+                                          (timePeriod === 'week' && forecastData.weekly?.length > 0) ||
+                                          (timePeriod === 'month' && forecastData.monthly?.length > 0)
+                    return hasForecastData ? (
+                      <Line type="monotone" dataKey="forecast" stroke="#ff7300" strokeDasharray="5 5" name="Forecast" />
+                    ) : null
+                  })()}
                 </LineChart>
               </ResponsiveContainer>
             </Card.Body>
@@ -438,6 +514,22 @@ function App() {
                   </Card>
                 </Col>
               </Row>
+
+      {/* Debug Section - Raw ChatGPT Response */}
+      {forecastData?.rawResponse && (
+        <Row className="mb-4">
+          <Col>
+            <Card>
+              <Card.Body>
+                <h5>Raw ChatGPT Response</h5>
+                <pre style={{ fontSize: '12px', maxHeight: '200px', overflow: 'auto' }}>
+                  {forecastData.rawResponse}
+                </pre>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      )}
     </Container>
   )
 }

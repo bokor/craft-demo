@@ -298,9 +298,12 @@ func generateForecastWithChatGPT(request ForecastRequest) ([]TimeSeriesPoint, er
 
 // buildMultiPeriodForecastPrompt creates the prompt for multi-period ChatGPT forecasting
 func buildMultiPeriodForecastPrompt(request ForecastRequest) string {
+	// Filter to only include the past 12 months of data
+	filteredData := filterToLast12Months(request.TimeSeriesData)
+
 	// Convert time series data to XML format
 	xmlData := "<historical_data>\n"
-	for _, point := range request.TimeSeriesData {
+	for _, point := range filteredData {
 		xmlData += fmt.Sprintf("  <data_point>\n    <period>%s</period>\n    <total>%.2f</total>\n  </data_point>\n", point.Period, point.Total)
 	}
 	xmlData += "</historical_data>"
@@ -315,6 +318,8 @@ Things to consider:
  - The response should follow the JSON format below.
  - Only return the next 14 days for daily, the next 4 weeks for weekly, and the next 6 months for monthly.
  - Consider trends, seasonality, and patterns in the data.
+ - Within the <historical_data>, <period> is the month and <total> is the total sales for that month for a single category.
+ - Remove any data points that are anomolies or outliers.
 
 <historical_data>
 %s
@@ -337,9 +342,12 @@ Consider trends, seasonality, and patterns in the data.`,
 
 // buildForecastPrompt creates the prompt for ChatGPT
 func buildForecastPrompt(request ForecastRequest) string {
+	// Filter to only include the past 12 months of data for consistency
+	filteredData := filterToLast12Months(request.TimeSeriesData)
+
 	// Convert time series data to XML format
 	xmlData := "<historical_data>\n"
-	for _, point := range request.TimeSeriesData {
+	for _, point := range filteredData {
 		xmlData += fmt.Sprintf("  <data_point>\n    <period>%s</period>\n    <total>%.2f</total>\n  </data_point>\n", point.Period, point.Total)
 	}
 	xmlData += "</historical_data>"
@@ -525,13 +533,16 @@ func parseChatGPTResponse(response *ChatGPTResponse) ([]TimeSeriesPoint, error) 
 
 // generateSimpleForecast creates a simple forecast based on trend when ChatGPT is not available
 func generateSimpleForecast(request ForecastRequest) []TimeSeriesPoint {
-	if len(request.TimeSeriesData) < 2 {
+	// Filter to only include the past 12 months of data for consistency
+	filteredData := filterToLast12Months(request.TimeSeriesData)
+
+	if len(filteredData) < 2 {
 		return []TimeSeriesPoint{}
 	}
 
 	// Calculate trend and volatility
-	values := make([]float64, len(request.TimeSeriesData))
-	for i, point := range request.TimeSeriesData {
+	values := make([]float64, len(filteredData))
+	for i, point := range filteredData {
 		values[i] = point.Total
 	}
 
@@ -566,7 +577,7 @@ func generateSimpleForecast(request ForecastRequest) []TimeSeriesPoint {
 
 		// Generate forecast
 		forecast := make([]TimeSeriesPoint, request.PeriodsToForecast)
-		lastPeriod := request.TimeSeriesData[len(request.TimeSeriesData)-1].Period
+		lastPeriod := filteredData[len(filteredData)-1].Period
 
 		for i := 0; i < request.PeriodsToForecast; i++ {
 			// Generate next period based on time period
@@ -598,7 +609,7 @@ func generateSimpleForecast(request ForecastRequest) []TimeSeriesPoint {
 	// Fallback to simple linear trend
 	trend := (avgRecent - values[0]) / float64(len(values)-1)
 	forecast := make([]TimeSeriesPoint, request.PeriodsToForecast)
-	lastPeriod := request.TimeSeriesData[len(request.TimeSeriesData)-1].Period
+	lastPeriod := filteredData[len(filteredData)-1].Period
 
 	for i := 0; i < request.PeriodsToForecast; i++ {
 		nextPeriod := generateNextPeriod(lastPeriod, request.TimePeriod, i+1)
@@ -628,6 +639,65 @@ func getForecastPeriods(timePeriod string) int {
 	default:
 		return 12 // Default fallback
 	}
+}
+
+// filterToLast12Months filters time series data to only include the past 12 months
+func filterToLast12Months(data []TimeSeriesPoint) []TimeSeriesPoint {
+	if len(data) == 0 {
+		return data
+	}
+
+	// Find the latest date in the data
+	var latestDate time.Time
+	for _, point := range data {
+		// Try to parse the period as different date formats
+		var date time.Time
+		var err error
+
+		// Try YYYY-MM-DD format first
+		date, err = time.Parse("2006-01-02", point.Period)
+		if err != nil {
+			// Try YYYY-MM format
+			date, err = time.Parse("2006-01", point.Period)
+			if err != nil {
+				// Skip this point if we can't parse it
+				continue
+			}
+		}
+
+		if date.After(latestDate) {
+			latestDate = date
+		}
+	}
+
+	// Calculate the cutoff date (12 months ago from the latest date)
+	cutoffDate := latestDate.AddDate(0, -12, 0)
+
+	// Filter data to only include points from the last 12 months
+	var filteredData []TimeSeriesPoint
+	for _, point := range data {
+		var date time.Time
+		var err error
+
+		// Try YYYY-MM-DD format first
+		date, err = time.Parse("2006-01-02", point.Period)
+		if err != nil {
+			// Try YYYY-MM format
+			date, err = time.Parse("2006-01", point.Period)
+			if err != nil {
+				// Skip this point if we can't parse it
+				continue
+			}
+		}
+
+		// Include only data from the last 12 months
+		if date.After(cutoffDate) || date.Equal(cutoffDate) {
+			filteredData = append(filteredData, point)
+		}
+	}
+
+	log.Printf("Filtered data from %d points to %d points (last 12 months)", len(data), len(filteredData))
+	return filteredData
 }
 
 // generateNextPeriod generates the next period string based on the time period type
