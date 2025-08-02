@@ -55,6 +55,7 @@ func main() {
 	})
 
 	apiGroup.GET("/sales/report/category", services.GetSalesReportByCategory)
+	apiGroup.POST("/sales/forecast", services.GenerateSalesForecast)
 
 	s := &http2.Server{
 		MaxConcurrentStreams: 250,

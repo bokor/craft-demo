@@ -15,6 +15,58 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/sales/forecast": {
+            "post": {
+                "description": "Sends time series data to ChatGPT for forecasting and returns predicted values",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Generate sales forecast using ChatGPT",
+                "parameters": [
+                    {
+                        "description": "Forecast request with time series data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/services.ForecastRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Forecast data with predicted values",
+                        "schema": {
+                            "$ref": "#/definitions/services.ForecastResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad request - invalid data",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/sales/report/category": {
             "get": {
                 "description": "Returns aggregated sales data by date and category with calculated total amounts",
@@ -85,6 +137,48 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "total_amount": {
+                    "type": "number"
+                }
+            }
+        },
+        "services.ForecastRequest": {
+            "type": "object",
+            "properties": {
+                "periodsToForecast": {
+                    "type": "integer"
+                },
+                "timePeriod": {
+                    "type": "string"
+                },
+                "timeSeriesData": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.TimeSeriesPoint"
+                    }
+                }
+            }
+        },
+        "services.ForecastResponse": {
+            "type": "object",
+            "properties": {
+                "forecast": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/services.TimeSeriesPoint"
+                    }
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "services.TimeSeriesPoint": {
+            "type": "object",
+            "properties": {
+                "period": {
+                    "type": "string"
+                },
+                "total": {
                     "type": "number"
                 }
             }

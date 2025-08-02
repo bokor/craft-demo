@@ -13,6 +13,11 @@ interface SalesData {
   [date: string]: CategoryTotal[]
 }
 
+interface ForecastData {
+  period: string
+  forecast: number
+}
+
 type TimePeriod = 'day' | 'week' | 'month'
 
 // Currency formatter for consistent dollar formatting
@@ -27,6 +32,8 @@ const formatCurrency = (amount: number): string => {
 
 function App() {
   const [salesData, setSalesData] = useState<SalesData>({})
+  const [forecastData, setForecastData] = useState<ForecastData[]>([])
+  const [isGeneratingForecast, setIsGeneratingForecast] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -64,6 +71,8 @@ function App() {
       setError(err instanceof Error ? err.message : 'Failed to fetch data')
     }
   }, [startDate, endDate])
+
+
 
   useEffect(() => {
     if (startDate && endDate) {
@@ -129,7 +138,7 @@ function App() {
     }
   }
 
-  // Prepare time series data
+  // Prepare time series data (actual sales only)
   const prepareTimeSeriesData = () => {
     const groupedData = groupDataByPeriod(salesData, timePeriod)
 
@@ -144,14 +153,71 @@ function App() {
       })
   }
 
+  // Prepare forecast data for chart
+  const prepareForecastChartData = () => {
+    if (forecastData.length === 0) return []
+
+    return forecastData.map(forecastPoint => ({
+      period: forecastPoint.period,
+      total: forecastPoint.forecast
+    }))
+  }
+
   const { chartData, categoryTotals } = calculateChartData()
   const timeSeriesData = prepareTimeSeriesData()
+  const forecastChartData = prepareForecastChartData()
+
+  // Generate forecast using ChatGPT service
+  const generateForecast = useCallback(async () => {
+    if (timeSeriesData.length === 0) {
+      setError('No data available for forecasting')
+      return
+    }
+
+    setIsGeneratingForecast(true)
+    setError(null)
+
+    try {
+      // Prepare data for forecasting
+      const forecastRequest = {
+        timeSeriesData: timeSeriesData,
+        timePeriod: timePeriod
+        // periodsToForecast will be determined by the backend based on timePeriod
+      }
+
+      console.log('Sending forecast request:', forecastRequest)
+
+      const response = await fetch('/api/v1/sales/forecast', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(forecastRequest)
+      })
+
+      if (!response.ok) {
+        throw new Error(`Forecast request failed: ${response.status}`)
+      }
+
+      const forecastResult = await response.json()
+      console.log('Forecast result:', forecastResult)
+
+      setForecastData(forecastResult.forecast || [])
+    } catch (err) {
+      console.error('Error generating forecast:', err)
+      setError(err instanceof Error ? err.message : 'Failed to generate forecast')
+    } finally {
+      setIsGeneratingForecast(false)
+    }
+  }, [timeSeriesData, timePeriod])
 
   // Debug logging
   console.log('Time series data:', timeSeriesData)
   console.log('Time period:', timePeriod)
   console.log('Sample data point:', timeSeriesData[0])
   console.log('Data structure valid:', timeSeriesData.length > 0 && timeSeriesData[0]?.period && typeof timeSeriesData[0]?.total === 'number')
+  console.log('Forecast data:', forecastData)
+  console.log('Forecast chart data:', forecastChartData)
 
   const totalSales = Object.values(salesData).flat().reduce((sum, category) => sum + category.total_amount, 0)
   const positiveSales = Object.values(salesData).flat().reduce((sum, category) => sum + Math.max(0, category.total_amount), 0)
@@ -206,7 +272,7 @@ function App() {
                     />
                   </Form.Group>
                 </Col>
-                <Col md={6}>
+                <Col md={4}>
                   <Form.Group>
                     <Form.Label>Time Period</Form.Label>
                     <ButtonGroup className="w-100">
@@ -221,6 +287,20 @@ function App() {
                         </Button>
                       ))}
                     </ButtonGroup>
+                  </Form.Group>
+                </Col>
+                <Col md={2}>
+                  <Form.Group>
+                    <Form.Label>&nbsp;</Form.Label>
+                    <Button
+                      onClick={generateForecast}
+                      disabled={isGeneratingForecast || timeSeriesData.length === 0}
+                      variant="success"
+                      className="w-100"
+                      size="sm"
+                    >
+                      {isGeneratingForecast ? 'Generating...' : 'Generate Forecast'}
+                    </Button>
                   </Form.Group>
                 </Col>
               </Row>
@@ -285,7 +365,10 @@ function App() {
                   />
                   <Tooltip formatter={chartTooltipFormatter} />
                   <Legend />
-                  <Line type="monotone" dataKey="total" stroke="#8884d8" />
+                  <Line type="monotone" dataKey="total" stroke="#8884d8" name="Actual Sales" />
+                  {forecastChartData.length > 0 && (
+                    <Line type="monotone" dataKey="total" stroke="#ff7300" strokeDasharray="5 5" name="Forecast" data={forecastChartData} />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
             </Card.Body>

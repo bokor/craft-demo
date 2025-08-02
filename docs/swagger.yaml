@@ -7,6 +7,33 @@ definitions:
       total_amount:
         type: number
     type: object
+  services.ForecastRequest:
+    properties:
+      periodsToForecast:
+        type: integer
+      timePeriod:
+        type: string
+      timeSeriesData:
+        items:
+          $ref: '#/definitions/services.TimeSeriesPoint'
+        type: array
+    type: object
+  services.ForecastResponse:
+    properties:
+      forecast:
+        items:
+          $ref: '#/definitions/services.TimeSeriesPoint'
+        type: array
+      message:
+        type: string
+    type: object
+  services.TimeSeriesPoint:
+    properties:
+      period:
+        type: string
+      total:
+        type: number
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -14,6 +41,41 @@ info:
   title: Craft Demo Reporting API
   version: "1.0"
 paths:
+  /sales/forecast:
+    post:
+      consumes:
+      - application/json
+      description: Sends time series data to ChatGPT for forecasting and returns predicted
+        values
+      parameters:
+      - description: Forecast request with time series data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/services.ForecastRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Forecast data with predicted values
+          schema:
+            $ref: '#/definitions/services.ForecastResponse'
+        "400":
+          description: Bad request - invalid data
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Generate sales forecast using ChatGPT
+      tags:
+      - sales
   /sales/report/category:
     get:
       consumes:
