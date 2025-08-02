@@ -28,7 +28,7 @@ craft-demo/
 │   └── seeds/              # Sample data seeding
 ├── batch/                  # Batch processing scripts
 ├── docs/                   # API documentation
-└── server.go              # Main server entry point
+└── server.go               # Main server entry point
 ```
 
 ## 🛠️ Technology Stack
