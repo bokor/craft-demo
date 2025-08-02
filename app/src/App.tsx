@@ -506,6 +506,47 @@ function App() {
                 </Col>
               </Row>
 
+              {/* Forecast Values Table */}
+              <Row className="mt-4">
+                <Col>
+                  <Card>
+                    <Card.Body>
+                      <h5>{getPeriodLabel(timePeriod)} Forecast Values</h5>
+                      <Table striped bordered hover responsive>
+                        <thead>
+                          <tr>
+                            <th>Period</th>
+                            <th>Forecasted Amount</th>
+                            <th>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {forecastCache[timePeriod] ? (
+                            forecastCache[timePeriod].forecast.map((forecastPoint, index) => (
+                              <tr key={`${timePeriod}-${index}`}>
+                                <td>{forecastPoint.period}</td>
+                                <td className="text-success">
+                                  {formatCurrency(forecastPoint.total)}
+                                </td>
+                                <td>
+                                  <span className="badge bg-success">Forecasted</span>
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={3} className="text-center text-muted">
+                                No forecast data available for {getPeriodLabel(timePeriod)}. Generate a forecast to see data here.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </Table>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+
       {/* Debug Section - Raw ChatGPT Response */}
       {forecastCache[timePeriod]?.rawResponse && (
         <Row className="mb-4">
