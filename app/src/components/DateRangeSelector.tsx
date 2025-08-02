@@ -1,5 +1,6 @@
 import React from 'react'
 import { Row, Col, Card, Form, Button, ButtonGroup } from 'react-bootstrap'
+import qbLogo from '../images/qb-logo-on-tofu-100-bkg-photo.png'
 
 type TimePeriod = 'day' | 'week' | 'month'
 
@@ -28,18 +29,17 @@ export const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({
   hasForecastData,
   hasTimeSeriesData
 }) => {
-  const getPeriodLabel = (period: TimePeriod) => {
-    switch (period) {
-      case 'day': return 'Daily'
-      case 'week': return 'Weekly'
-      case 'month': return 'Monthly'
-    }
-  }
-
   return (
     <Row className="mb-4">
       <Col>
-        <h1 className="mb-3">Sales Dashboard</h1>
+        <div className="d-flex align-items-center mb-3">
+          <img
+            src={qbLogo}
+            alt="QuickBooks Logo"
+            className="qb-logo"
+          />
+          <h1 className="mb-0">Sales Dashboard</h1>
+        </div>
         <Card>
           <Card.Body>
             <Row>
