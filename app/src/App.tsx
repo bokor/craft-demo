@@ -547,21 +547,7 @@ function App() {
                 </Col>
               </Row>
 
-      {/* Debug Section - Raw ChatGPT Response */}
-      {forecastCache[timePeriod]?.rawResponse && (
-        <Row className="mb-4">
-          <Col>
-            <Card>
-              <Card.Body>
-                <h5>Raw ChatGPT Response</h5>
-                <pre className="debug-response">
-                  {forecastCache[timePeriod].rawResponse}
-                </pre>
-              </Card.Body>
-            </Card>
-          </Col>
-        </Row>
-      )}
+
     </Container>
   )
 }
