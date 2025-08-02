@@ -1,8 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Container, Row, Col, Card, Form, Button, Alert, Table, ButtonGroup } from 'react-bootstrap'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { Container } from 'react-bootstrap'
 import 'bootstrap/dist/css/bootstrap.min.css'
 import './App.css'
+
+// Import components
+import { DateRangeSelector } from './components/DateRangeSelector'
+import { KeyMetrics } from './components/KeyMetrics'
+import { SalesTrendChart } from './components/SalesTrendChart'
+import { CategoryChart } from './components/CategoryChart'
+import { CategoryBreakdownTable } from './components/CategoryBreakdownTable'
+import { ForecastTable } from './components/ForecastTable'
+import { ErrorAlert } from './components/ErrorAlert'
 
 interface CategoryTotal {
   category_name: string
@@ -269,16 +277,6 @@ function App() {
     }
   }, [timeSeriesData, timePeriod])
 
-  // Debug logging
-  console.log('Time series data:', timeSeriesData)
-  console.log('Time period:', timePeriod)
-  console.log('Sample data point:', timeSeriesData[0])
-  console.log('Data structure valid:', timeSeriesData.length > 0 && timeSeriesData[0]?.period && typeof timeSeriesData[0]?.total === 'number')
-  console.log('Forecast cache:', forecastCache)
-  console.log('Current forecast data:', forecastCache[timePeriod])
-  console.log('Combined chart data:', combinedChartData)
-  console.log('Raw ChatGPT response:', forecastCache[timePeriod]?.rawResponse)
-
   const totalSales = Object.values(salesData).flat().reduce((sum, category) => sum + category.total_amount, 0)
   const positiveSales = Object.values(salesData).flat().reduce((sum, category) => sum + Math.max(0, category.total_amount), 0)
   const negativeSales = Math.abs(Object.values(salesData).flat().reduce((sum, category) => sum + Math.min(0, category.total_amount), 0))
@@ -293,261 +291,52 @@ function App() {
     }))
     .sort((a, b) => Math.abs(parseFloat(b.total)) - Math.abs(parseFloat(a.total)))
 
-  // Custom tooltip formatter for charts
-  const chartTooltipFormatter = (value: number) => [formatCurrency(value), 'Total Sales']
-
-  const getPeriodLabel = (period: TimePeriod) => {
-    switch (period) {
-      case 'day': return 'Daily'
-      case 'week': return 'Weekly'
-      case 'month': return 'Monthly'
-    }
-  }
-
   return (
     <Container fluid className="py-4">
-      <Row className="mb-4">
-        <Col>
-          <h1 className="mb-3">Sales Dashboard</h1>
-          <Card>
-            <Card.Body>
-              <Row>
-                <Col md={3}>
-                  <Form.Group>
-                    <Form.Label>Start Date</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={3}>
-                  <Form.Group>
-                    <Form.Label>End Date</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={4}>
-                  <Form.Group>
-                    <Form.Label>Time Period</Form.Label>
-                    <ButtonGroup className="w-100">
-                      {(['day', 'week', 'month'] as TimePeriod[]).map((period) => (
-                        <Button
-                          key={period}
-                          variant={timePeriod === period ? 'primary' : 'outline-primary'}
-                          onClick={() => setTimePeriod(period)}
-                          size="sm"
-                        >
-                          {period.charAt(0).toUpperCase() + period.slice(1)}
-                        </Button>
-                      ))}
-                    </ButtonGroup>
-                  </Form.Group>
-                </Col>
-                <Col md={2}>
-                  <Form.Group>
-                    <Form.Label>&nbsp;</Form.Label>
-                    <Button
-                      onClick={generateForecast}
-                      disabled={isGeneratingForecast || timeSeriesData.length === 0 || !!forecastCache[timePeriod]}
-                      variant="success"
-                      className="w-100"
-                      size="sm"
-                    >
-                      {isGeneratingForecast ? 'Generating...' : forecastCache[timePeriod] ? 'Forecast Generated' : 'Generate Forecast'}
-                    </Button>
-                  </Form.Group>
-                </Col>
-              </Row>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+      <DateRangeSelector
+        startDate={startDate}
+        endDate={endDate}
+        timePeriod={timePeriod}
+        onStartDateChange={setStartDate}
+        onEndDateChange={setEndDate}
+        onTimePeriodChange={setTimePeriod}
+        onGenerateForecast={generateForecast}
+        isGeneratingForecast={isGeneratingForecast}
+        hasForecastData={!!forecastCache[timePeriod]}
+        hasTimeSeriesData={timeSeriesData.length > 0}
+      />
 
-      {error && (
-        <Row className="mb-4">
-          <Col>
-            <Alert variant="danger">{error}</Alert>
-          </Col>
-        </Row>
-      )}
+      <ErrorAlert error={error} />
 
-      {/* Key Metrics */}
-      <Row className="mb-4">
-        <Col md={4}>
-          <Card>
-            <Card.Body>
-              <h5>Total Sales</h5>
-              <h3>{formatCurrency(totalSales)}</h3>
-              <small className="text-muted">Net sales including refunds</small>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card>
-            <Card.Body>
-              <h5>Gross Sales</h5>
-              <h3>{formatCurrency(positiveSales)}</h3>
-              <small className="text-muted">Total positive transactions</small>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card>
-            <Card.Body>
-              <h5>Total Refunds</h5>
-              <h3>{formatCurrency(negativeSales)}</h3>
-              <small className="text-muted">Total refunded amount</small>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+      <KeyMetrics
+        totalSales={totalSales}
+        positiveSales={positiveSales}
+        negativeSales={negativeSales}
+        formatCurrency={formatCurrency}
+      />
 
-      {/* Time Series Chart */}
-      <Row className="mb-4">
-        <Col>
-          <Card>
-            <Card.Body>
-              <h5>{getPeriodLabel(timePeriod)} Sales Trend</h5>
-              {forecastCache[timePeriod] && (
-                <div className="mb-2">
-                  <small className="text-muted">
-                    Forecast data available for {getPeriodLabel(forecastCache[timePeriod].timePeriod as TimePeriod)} period.
-                  </small>
-                </div>
-              )}
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={combinedChartData} margin={{ left: 80, right: 30, top: 5, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="period" />
-                  <YAxis
-                    tickFormatter={(value) => formatCurrency(value)}
-                    width={80}
-                    tick={{ fontSize: 12 }}
-                  />
-                  <Tooltip formatter={chartTooltipFormatter} />
-                  <Legend />
-                  <Line type="monotone" dataKey="total" stroke="#8884d8" name="Actual Sales" />
-                  {forecastCache[timePeriod] && forecastCache[timePeriod].forecast && forecastCache[timePeriod].forecast.length > 0 && (
-                    <Line type="monotone" dataKey="forecast" stroke="#ff7300" strokeDasharray="5 5" name="Forecast" />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+      <SalesTrendChart
+        timePeriod={timePeriod}
+        chartData={combinedChartData}
+        hasForecastData={!!forecastCache[timePeriod]}
+        formatCurrency={formatCurrency}
+      />
 
-                    {/* Category Chart */}
-              <Row className="mb-4">
-                <Col>
-                  <Card>
-                    <Card.Body>
-                      <h5>Sales by Category</h5>
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={chartData} margin={{ left: 80, right: 30, top: 5, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="name" />
-                          <YAxis
-                            tickFormatter={(value) => formatCurrency(value)}
-                            width={80}
-                            tick={{ fontSize: 12 }}
-                          />
-                          <Tooltip formatter={chartTooltipFormatter} />
-                          <Legend />
-                          <Bar dataKey="value" fill="#8884d8" name="By Category" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                      <p className="text-muted">Distribution of sales across categories</p>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
+      <CategoryChart
+        chartData={chartData}
+        formatCurrency={formatCurrency}
+      />
 
-              {/* Category Breakdown Table */}
-              <Row>
-                <Col>
-                  <Card>
-                    <Card.Body>
-                      <h5>Category Breakdown</h5>
-                      <Table striped bordered hover responsive>
-                        <thead>
-                          <tr>
-                            <th>Category</th>
-                            <th>Total Amount</th>
-                            <th>Percentage</th>
-                            <th>Type</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tableData.map((row, index) => (
-                            <tr key={index}>
-                              <td>{row.category}</td>
-                              <td className={row.isRefund ? 'text-danger' : 'text-success'}>
-                                {formatCurrency(parseFloat(row.total))}
-                              </td>
-                              <td>{row.percentage}%</td>
-                              <td>
-                                <span className={`badge ${row.isRefund ? 'bg-danger' : 'bg-success'}`}>
-                                  {row.isRefund ? 'Refund' : 'Sale'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
+      <CategoryBreakdownTable
+        tableData={tableData}
+        formatCurrency={formatCurrency}
+      />
 
-              {/* Forecast Values Table */}
-              <Row className="mt-4">
-                <Col>
-                  <Card>
-                    <Card.Body>
-                      <h5>{getPeriodLabel(timePeriod)} Forecast Values</h5>
-                      <Table striped bordered hover responsive>
-                        <thead>
-                          <tr>
-                            <th>Period</th>
-                            <th>Forecasted Amount</th>
-                            <th>Status</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {forecastCache[timePeriod] ? (
-                            forecastCache[timePeriod].forecast.map((forecastPoint, index) => (
-                              <tr key={`${timePeriod}-${index}`}>
-                                <td>{forecastPoint.period}</td>
-                                <td className="text-success">
-                                  {formatCurrency(forecastPoint.total)}
-                                </td>
-                                <td>
-                                  <span className="badge bg-success">Forecasted</span>
-                                </td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td colSpan={3} className="text-center text-muted">
-                                No forecast data available for {getPeriodLabel(timePeriod)}. Generate a forecast to see data here.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </Table>
-                    </Card.Body>
-                  </Card>
-                </Col>
-              </Row>
-
-
+      <ForecastTable
+        timePeriod={timePeriod}
+        forecastCache={forecastCache}
+        formatCurrency={formatCurrency}
+      />
     </Container>
   )
 }
