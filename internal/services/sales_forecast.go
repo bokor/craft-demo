@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
-	"math/rand"
 	"net/http"
 	"os"
 	"time"
@@ -107,22 +105,15 @@ func GenerateSalesForecast(c echo.Context) error {
 	forecast, rawResponse, err := generateForecastForPeriod(request, timePeriod)
 	if err != nil {
 		log.Printf("Failed to generate forecast: %v", err)
-		// Fallback to simple forecast
-		response.Forecast = generateSimpleForecast(createRequestForPeriod(request, timePeriod))
-	} else {
-		response.Forecast = forecast
-		response.RawResponse = rawResponse
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to generate forecast",
+		})
 	}
 
-	return c.JSON(http.StatusOK, response)
-}
+	response.Forecast = forecast
+	response.RawResponse = rawResponse
 
-// createRequestForPeriod creates a request for a specific time period
-func createRequestForPeriod(request ForecastRequest, timePeriod string) ForecastRequest {
-	newRequest := request
-	newRequest.TimePeriod = timePeriod
-	newRequest.PeriodsToForecast = getForecastPeriods(timePeriod)
-	return newRequest
+	return c.JSON(http.StatusOK, response)
 }
 
 // generateForecastForPeriod sends data to ChatGPT for forecasting a specific time period
@@ -130,31 +121,23 @@ func generateForecastForPeriod(request ForecastRequest, timePeriod string) ([]Ti
 	// Get ChatGPT API key from environment
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		log.Printf("No OpenAI API key found, using simple forecast")
-		// If no API key, generate a simple forecast based on trend
-		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (no API key)", nil
+		log.Printf("No OpenAI API key found")
+		return nil, "", fmt.Errorf("no OpenAI API key found")
 	}
 
 	// Check if we have a valid API key
-	if apiKey == "" || len(apiKey) < 10 {
-		log.Printf("No valid OpenAI API key found, using simple forecast")
-		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (invalid API key)", nil
+	if len(apiKey) < 10 {
+		log.Printf("No valid OpenAI API key found")
+		return nil, "", fmt.Errorf("invalid OpenAI API key")
 	}
 
 	// Validate API key format (should start with sk-)
 	if len(apiKey) < 3 || apiKey[:3] != "sk-" {
-		log.Printf("Invalid OpenAI API key format, using simple forecast")
-		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (invalid API key format)", nil
+		log.Printf("Invalid OpenAI API key format")
+		return nil, "", fmt.Errorf("invalid OpenAI API key format")
 	}
 
 	log.Printf("Using ChatGPT for %s forecasting with API key: %s...", timePeriod, apiKey[:7])
-
-	// Test the API first
-	if err := testOpenAIAPI(apiKey); err != nil {
-		log.Printf("OpenAI API test failed: %v", err)
-		log.Printf("Falling back to simple forecast")
-		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (API test failed)", nil
-	}
 
 	// Prepare the prompt for ChatGPT
 	prompt := buildForecastPromptForPeriod(request, timePeriod)
@@ -178,16 +161,14 @@ func generateForecastForPeriod(request ForecastRequest, timePeriod string) ([]Ti
 	response, err := sendChatGPTRequest(apiKey, chatGPTRequest)
 	if err != nil {
 		log.Printf("ChatGPT request failed: %v", err)
-		// Fallback to simple forecast
-		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (ChatGPT request failed)", nil
+		return nil, "", fmt.Errorf("ChatGPT request failed: %v", err)
 	}
 
 	// Parse ChatGPT response
 	forecast, rawResponse, err := parseSinglePeriodChatGPTResponse(response)
 	if err != nil {
 		log.Printf("Failed to parse ChatGPT response: %v", err)
-		// Fallback to simple forecast
-		return generateSimpleForecast(createRequestForPeriod(request, timePeriod)), "Simple forecast generated (parsing failed)", nil
+		return nil, "", fmt.Errorf("failed to parse ChatGPT response: %v", err)
 	}
 
 	return forecast, rawResponse, nil
@@ -241,8 +222,6 @@ Please provide the forecast in JSON response format like this:
 
 Consider trends, seasonality, and patterns in the data.`,
 		periodLabel, periodLabel, forecastPeriods, xmlData)
-
-	log.Printf("Generated %s forecast prompt: %s", timePeriod, prompt)
 
 	return prompt
 }
@@ -309,8 +288,6 @@ func sendChatGPTRequest(apiKey string, request ChatGPTRequest) (*ChatGPTResponse
 		return nil, err
 	}
 
-	log.Printf("ChatGPT API response: %v", &response)
-
 	return &response, nil
 }
 
@@ -321,7 +298,6 @@ func parseSinglePeriodChatGPTResponse(response *ChatGPTResponse) ([]TimeSeriesPo
 	}
 
 	content := response.Choices[0].Message.Content
-	log.Printf("ChatGPT single-period response content: %s", content)
 
 	// Try to extract JSON from the response
 	// Look for JSON array in the content
@@ -349,7 +325,6 @@ func parseSinglePeriodChatGPTResponse(response *ChatGPTResponse) ([]TimeSeriesPo
 	}
 
 	jsonStr := content[start:end]
-	log.Printf("Extracted single-period JSON: %s", jsonStr)
 
 	var forecast []TimeSeriesPoint
 	if err := json.Unmarshal([]byte(jsonStr), &forecast); err != nil {
@@ -357,102 +332,6 @@ func parseSinglePeriodChatGPTResponse(response *ChatGPTResponse) ([]TimeSeriesPo
 	}
 
 	return forecast, content, nil
-}
-
-// generateSimpleForecast creates a simple forecast based on trend when ChatGPT is not available
-func generateSimpleForecast(request ForecastRequest) []TimeSeriesPoint {
-	// Filter to only include the past 12 months of data for consistency
-	filteredData := filterToLast12Months(request.TimeSeriesData)
-
-	if len(filteredData) < 2 {
-		return []TimeSeriesPoint{}
-	}
-
-	// Calculate trend and volatility
-	values := make([]float64, len(filteredData))
-	for i, point := range filteredData {
-		values[i] = point.Total
-	}
-
-	// Calculate moving average for trend
-	windowSize := 3
-	if len(values) < windowSize {
-		windowSize = len(values)
-	}
-
-	recentValues := values[len(values)-windowSize:]
-	avgRecent := 0.0
-	for _, v := range recentValues {
-		avgRecent += v
-	}
-	avgRecent /= float64(len(recentValues))
-
-	// Calculate trend based on recent vs older data
-	olderValues := values[:len(values)-windowSize]
-	if len(olderValues) > 0 {
-		avgOlder := 0.0
-		for _, v := range olderValues {
-			avgOlder += v
-		}
-		avgOlder /= float64(len(olderValues))
-
-		// Trend is the difference between recent and older averages
-		trend := (avgRecent - avgOlder) / float64(windowSize)
-
-		// Add some seasonality and randomness
-		seasonality := 0.1 // 10% seasonal variation
-		volatility := 0.05 // 5% random variation
-
-		// Generate forecast
-		forecast := make([]TimeSeriesPoint, request.PeriodsToForecast)
-		lastPeriod := filteredData[len(filteredData)-1].Period
-
-		for i := 0; i < request.PeriodsToForecast; i++ {
-			// Generate next period based on time period
-			nextPeriod := generateNextPeriod(lastPeriod, request.TimePeriod, i+1)
-
-			// Calculate forecast value with trend, seasonality, and volatility
-			baseValue := avgRecent + trend*float64(i+1)
-
-			// Add seasonal variation (simple sine wave)
-			seasonalFactor := 1.0 + seasonality*math.Sin(float64(i)*math.Pi/6)
-
-			// Add small random variation
-			randomFactor := 1.0 + (rand.Float64()-0.5)*volatility*2
-
-			forecastValue := baseValue * seasonalFactor * randomFactor
-			if forecastValue < 0 {
-				forecastValue = 0 // Don't allow negative sales
-			}
-
-			forecast[i] = TimeSeriesPoint{
-				Period: nextPeriod,
-				Total:  forecastValue,
-			}
-		}
-
-		return forecast
-	}
-
-	// Fallback to simple linear trend
-	trend := (avgRecent - values[0]) / float64(len(values)-1)
-	forecast := make([]TimeSeriesPoint, request.PeriodsToForecast)
-	lastPeriod := filteredData[len(filteredData)-1].Period
-
-	for i := 0; i < request.PeriodsToForecast; i++ {
-		nextPeriod := generateNextPeriod(lastPeriod, request.TimePeriod, i+1)
-		forecastValue := avgRecent + trend*float64(i+1)
-		if forecastValue < 0 {
-			forecastValue = 0
-		}
-
-		forecast[i] = TimeSeriesPoint{
-			Period: nextPeriod,
-			Total:  forecastValue,
-		}
-	}
-
-	return forecast
 }
 
 // getForecastPeriods returns the number of periods to forecast based on time period
@@ -526,93 +405,4 @@ func filterToLast12Months(data []TimeSeriesPoint) []TimeSeriesPoint {
 
 	log.Printf("Filtered data from %d points to %d points (last 12 months)", len(data), len(filteredData))
 	return filteredData
-}
-
-// generateNextPeriod generates the next period string based on the time period type
-func generateNextPeriod(lastPeriod, timePeriod string, offset int) string {
-	// Parse the last period to get the base date
-	var baseDate time.Time
-	var err error
-
-	switch timePeriod {
-	case "day":
-		// Parse YYYY-MM-DD format
-		baseDate, err = time.Parse("2006-01-02", lastPeriod)
-		if err != nil {
-			// Fallback to current date if parsing fails
-			baseDate = time.Now()
-		}
-		// Add offset days
-		nextDate := baseDate.AddDate(0, 0, offset)
-		return nextDate.Format("2006-01-02")
-
-	case "week":
-		// Parse YYYY-MM-DD format (week start date)
-		baseDate, err = time.Parse("2006-01-02", lastPeriod)
-		if err != nil {
-			baseDate = time.Now()
-		}
-		// Add offset weeks
-		nextDate := baseDate.AddDate(0, 0, offset*7)
-		return nextDate.Format("2006-01-02")
-
-	case "month":
-		// Parse YYYY-MM format
-		baseDate, err = time.Parse("2006-01", lastPeriod)
-		if err != nil {
-			// Try parsing as YYYY-MM-DD and extract year/month
-			baseDate, err = time.Parse("2006-01-02", lastPeriod)
-			if err != nil {
-				baseDate = time.Now()
-			}
-		}
-		// Add offset months
-		nextDate := baseDate.AddDate(0, offset, 0)
-		return nextDate.Format("2006-01")
-
-	default:
-		return fmt.Sprintf("forecast-%d", offset)
-	}
-}
-
-// testOpenAIAPI tests if the OpenAI API key and endpoint are working
-func testOpenAIAPI(apiKey string) error {
-	// Simple test request
-	testRequest := ChatGPTRequest{
-		Model: "gpt-3.5-turbo", // Use cheaper model for testing
-		Messages: []Message{
-			{
-				Role:    "user",
-				Content: "Hello, this is a test message. Please respond with 'OK'.",
-			},
-		},
-	}
-
-	jsonData, err := json.Marshal(testRequest)
-	if err != nil {
-		return fmt.Errorf("failed to marshal test request: %v", err)
-	}
-
-	req, err := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create test request: %v", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("User-Agent", "CraftDemo/1.0")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("test request failed: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("test request failed with status: %d", resp.StatusCode)
-	}
-
-	log.Printf("OpenAI API test successful")
-	return nil
 }

@@ -10,8 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/joho/godotenv"
-	_ "github.com/lib/pq" // PostgreSQL driver
+	"github.com/bokor/craft-demo/internal/database"
 )
 
 const (
@@ -26,16 +25,8 @@ type Seed struct {
 
 func main() {
 
-	// load .env file from given path
-	// we keep it empty it will load .env from current directory
-	err := godotenv.Load(".env")
-
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
-
 	// open database
-	db, err := GetDBConnection()
+	db, err := database.GetDBConnection()
 	if err != nil {
 		log.Fatalf("Error connecting to the database: %v", err)
 	}
@@ -45,18 +36,6 @@ func main() {
 
 	// close database
 	defer db.Close()
-}
-
-func GetDBConnection() (*sql.DB, error) {
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbName := os.Getenv("DB_NAME")
-
-	psqlconn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
-
-	return sql.Open("postgres", psqlconn)
 }
 
 func CheckError(err error) {

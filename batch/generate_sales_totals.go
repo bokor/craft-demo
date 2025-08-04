@@ -4,11 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"strings"
 
-	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
+	"github.com/bokor/craft-demo/internal/database"
 )
 
 // SalesTotal represents a record for the sales_totals_by_category_dw table
@@ -20,13 +18,8 @@ type SalesTotal struct {
 }
 
 func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found, using system environment variables")
-	}
-
 	// open database
-	db, err := GetDBConnection()
+	db, err := database.GetDBConnection()
 	if err != nil {
 		log.Fatalf("Error connecting to the database: %v", err)
 	}
@@ -50,18 +43,6 @@ func main() {
 	}
 
 	log.Println("Sales totals generation completed successfully")
-}
-
-func GetDBConnection() (*sql.DB, error) {
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbName := os.Getenv("DB_NAME")
-
-	psqlconn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
-
-	return sql.Open("postgres", psqlconn)
 }
 
 func clearExistingData(db *sql.DB) error {

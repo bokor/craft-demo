@@ -23,9 +23,12 @@ craft-demo/
 ├── cmd/
 │   └── server/             # Server application
 │       └── main.go         # Main server entry point
-├── services/               # Go backend services
-│   ├── sales_forecast.go   # AI forecasting service
-│   └── sales_report.go     # Sales reporting service
+├── internal/               # Internal Go packages
+│   ├── database/           # Database utilities
+│   │   └── connection.go   # Database connection management
+│   └── services/           # Backend services
+│       ├── sales_forecast.go   # AI forecasting service
+│       └── sales_report_by_category.go     # Sales reporting service
 ├── db/                     # Database management
 │   ├── migrations/         # Database migrations
 │   └── seeds/              # Sample data seeding
@@ -240,8 +243,9 @@ make all
 
 #### Backend Services
 
-- **`services/sales_forecast.go`**: AI-powered sales forecasting with ChatGPT integration
-- **`services/sales_report_by_category.go`**: Sales reporting and analytics
+- **`internal/database/connection.go`**: Centralized database connection management
+- **`internal/services/sales_forecast.go`**: AI-powered sales forecasting with ChatGPT integration
+- **`internal/services/sales_report_by_category.go`**: Sales reporting and analytics
 - **`cmd/server/main.go`**: Main server with Echo framework and middleware
 
 #### Frontend Components

@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/joho/godotenv"
+	"github.com/bokor/craft-demo/internal/database"
 	"github.com/labstack/echo/v4"
-	_ "github.com/lib/pq"
 )
 
 // CategoryTotal represents the total amount for a category
@@ -61,18 +59,13 @@ func GetSalesReportByCategory(c echo.Context) error {
 		})
 	}
 
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Printf("Warning: .env file not found, using system environment variables")
-	}
-
 	// Get database connection
-	db, err := GetDBConnection()
+	db, err := database.GetDBConnection()
 	if err != nil {
 		log.Printf("Database connection failed: %v, falling back to sample data", err)
-		// Fall back to sample data when database connection fails
-		salesData := generateSampleData(startDate, endDate)
-		return c.JSON(http.StatusOK, salesData)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Database connection failed",
+		})
 	}
 	defer db.Close()
 
@@ -80,14 +73,16 @@ func GetSalesReportByCategory(c echo.Context) error {
 	salesData, err := querySalesData(db, startDate, endDate)
 	if err != nil {
 		log.Printf("Failed to query sales data: %v, falling back to sample data", err)
-		// Fall back to sample data when query fails
-		salesData = generateSampleData(startDate, endDate)
-		return c.JSON(http.StatusOK, salesData)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Failed to query sales data",
+		})
 	}
 
 	// If no data found, return sample data for testing
 	if len(salesData) == 0 {
-		salesData = generateSampleData(startDate, endDate)
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "No sales data found",
+		})
 	}
 
 	// Return the response - each date key directly contains the categories array
@@ -158,60 +153,4 @@ func querySalesData(db *sql.DB, startDate, endDate string) (map[string][]Categor
 	}
 
 	return result, nil
-}
-
-// generateSampleData creates sample data for testing when no real data is found
-func generateSampleData(startDate, endDate string) map[string][]CategoryTotal {
-	sampleData := make(map[string][]CategoryTotal)
-
-	// Parse dates
-	start, err := time.Parse("2006-01-02", startDate)
-	if err != nil {
-		// Return empty data for invalid start date
-		return sampleData
-	}
-
-	end, err := time.Parse("2006-01-02", endDate)
-	if err != nil {
-		// Return empty data for invalid end date
-		return sampleData
-	}
-
-	// Sample categories
-	categories := []string{"Electronics", "Clothing", "Books", "Home & Garden", "Sports"}
-
-	// Generate data for each day in the range
-	for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
-		dateStr := d.Format("2006-01-02")
-		var dayData []CategoryTotal
-
-		// Add 2-4 categories per day with random amounts
-		numCategories := 2 + (d.Day() % 3) // Varies between 2-4
-		for i := 0; i < numCategories; i++ {
-			categoryIndex := (d.Day() + i) % len(categories)
-			amount := float64(100+(d.Day()*10)+(i*50)) + float64(d.Hour())/100
-
-			dayData = append(dayData, CategoryTotal{
-				CategoryName: categories[categoryIndex],
-				TotalAmount:  amount,
-			})
-		}
-
-		sampleData[dateStr] = dayData
-	}
-
-	return sampleData
-}
-
-// GetDBConnection returns a database connection
-func GetDBConnection() (*sql.DB, error) {
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbUser := os.Getenv("DB_USER")
-	dbPassword := os.Getenv("DB_PASSWORD")
-	dbName := os.Getenv("DB_NAME")
-
-	psqlconn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
-
-	return sql.Open("postgres", psqlconn)
 }
