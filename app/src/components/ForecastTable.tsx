@@ -1,5 +1,6 @@
 import React from 'react'
 import { Row, Col, Card, Table } from 'react-bootstrap'
+import { formatCurrency } from '../utils/formatters'
 
 type TimePeriod = 'day' | 'week' | 'month'
 
@@ -18,13 +19,11 @@ interface ForecastResponse {
 interface ForecastTableProps {
   timePeriod: TimePeriod
   forecastCache: Record<string, ForecastResponse>
-  formatCurrency: (amount: number) => string
 }
 
 export const ForecastTable: React.FC<ForecastTableProps> = ({
   timePeriod,
-  forecastCache,
-  formatCurrency
+  forecastCache
 }) => {
   const getPeriodLabel = (period: TimePeriod) => {
     switch (period) {

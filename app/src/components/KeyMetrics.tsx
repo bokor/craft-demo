@@ -1,18 +1,17 @@
 import React from 'react'
 import { Row, Col, Card } from 'react-bootstrap'
+import { formatCurrency } from '../utils/formatters'
 
 interface KeyMetricsProps {
   totalSales: number
   positiveSales: number
   negativeSales: number
-  formatCurrency: (amount: number) => string
 }
 
 export const KeyMetrics: React.FC<KeyMetricsProps> = ({
   totalSales,
   positiveSales,
-  negativeSales,
-  formatCurrency
+  negativeSales
 }) => {
   return (
     <Row className="mb-4">

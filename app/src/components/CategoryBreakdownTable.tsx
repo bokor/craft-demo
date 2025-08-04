@@ -1,5 +1,6 @@
 import React from 'react'
 import { Row, Col, Card, Table } from 'react-bootstrap'
+import { formatCurrency } from '../utils/formatters'
 
 interface TableRow {
   category: string
@@ -10,12 +11,10 @@ interface TableRow {
 
 interface CategoryBreakdownTableProps {
   tableData: TableRow[]
-  formatCurrency: (amount: number) => string
 }
 
 export const CategoryBreakdownTable: React.FC<CategoryBreakdownTableProps> = ({
-  tableData,
-  formatCurrency
+  tableData
 }) => {
   return (
     <Row>

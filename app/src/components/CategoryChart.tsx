@@ -1,22 +1,47 @@
 import React from 'react'
 import { Row, Col, Card } from 'react-bootstrap'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { formatCurrency } from '../utils/formatters'
 
-interface ChartDataPoint {
-  name: string
-  value: number
+interface CategoryTotal {
+  category_name: string
+  total_amount: number
 }
 
+interface SalesData {
+  [date: string]: CategoryTotal[]
+}
+
+
+
 interface CategoryChartProps {
-  chartData: ChartDataPoint[]
-  formatCurrency: (amount: number) => string
+  salesData: SalesData
 }
 
 export const CategoryChart: React.FC<CategoryChartProps> = ({
-  chartData,
-  formatCurrency
+  salesData
 }) => {
+  // Calculate totals and prepare chart data
+  const calculateChartData = () => {
+    const categoryTotals: { [key: string]: number } = {}
+    const allCategories = Object.values(salesData).flat()
+
+    // Aggregate by category
+    allCategories.forEach(category => {
+      categoryTotals[category.category_name] = (categoryTotals[category.category_name] || 0) + category.total_amount
+    })
+
+    // Convert to chart format
+    const chartData = Object.entries(categoryTotals).map(([name, value]) => ({
+      name,
+      value: Math.abs(value) // Use absolute value for chart
+    }))
+
+    return chartData.sort((a, b) => b.value - a.value)
+  }
+
   const chartTooltipFormatter = (value: number) => [formatCurrency(value), 'Total Sales']
+  const chartData = calculateChartData()
 
   return (
     <Row className="mb-4">

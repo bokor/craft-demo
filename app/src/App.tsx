@@ -12,6 +12,8 @@ import { CategoryBreakdownTable } from './components/CategoryBreakdownTable'
 import { ForecastTable } from './components/ForecastTable'
 import { ErrorAlert } from './components/ErrorAlert'
 
+
+
 interface CategoryTotal {
   category_name: string
   total_amount: number
@@ -26,11 +28,7 @@ interface ForecastData {
   total: number
 }
 
-interface ChartDataPoint {
-  period: string
-  total: number | null
-  forecast?: number
-}
+
 
 interface ForecastResponse {
   forecast: ForecastData[]
@@ -41,15 +39,7 @@ interface ForecastResponse {
 
 type TimePeriod = 'day' | 'week' | 'month'
 
-// Currency formatter for consistent dollar formatting
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
+
 
 function App() {
   const [salesData, setSalesData] = useState<SalesData>({})
@@ -106,44 +96,8 @@ function App() {
     setForecastCache({})
   }, [startDate, endDate])
 
-  // Group data by time period
-  const groupDataByPeriod = (data: SalesData, period: TimePeriod) => {
-    const groupedData: { [key: string]: number } = {}
-
-    Object.entries(data).forEach(([dateStr, categories]) => {
-      const date = new Date(dateStr)
-      let periodKey = ''
-
-      switch (period) {
-        case 'day':
-          periodKey = date.toISOString().split('T')[0] // YYYY-MM-DD
-          break
-        case 'week': {
-          const weekStart = new Date(date)
-          weekStart.setDate(date.getDate() - date.getDay()) // Start of week (Sunday)
-          periodKey = weekStart.toISOString().split('T')[0]
-          break
-        }
-        case 'month':
-          periodKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` // YYYY-MM
-          break
-      }
-
-      // Calculate total sales for this period
-      const periodTotal = categories.reduce((sum, category) => sum + category.total_amount, 0)
-
-      if (groupedData[periodKey]) {
-        groupedData[periodKey] += periodTotal
-      } else {
-        groupedData[periodKey] = periodTotal
-      }
-    })
-
-    return groupedData
-  }
-
-  // Calculate totals and prepare chart data
-  const calculateChartData = () => {
+  // Calculate totals for metrics and table data
+  const calculateTotals = () => {
     const categoryTotals: { [key: string]: number } = {}
     const allCategories = Object.values(salesData).flat()
 
@@ -152,87 +106,18 @@ function App() {
       categoryTotals[category.category_name] = (categoryTotals[category.category_name] || 0) + category.total_amount
     })
 
-    // Convert to chart format
-    const chartData = Object.entries(categoryTotals).map(([name, value]) => ({
-      name,
-      value: Math.abs(value) // Use absolute value for chart
-    }))
-
-    return {
-      chartData: chartData.sort((a, b) => b.value - a.value),
-      categoryTotals
-    }
+    return categoryTotals
   }
 
-    // Prepare time series data (actual sales only)
-  const prepareTimeSeriesData = () => {
-    const groupedData = groupDataByPeriod(salesData, timePeriod)
-
-    return Object.entries(groupedData)
-      .map(([period, total]) => ({
-        period,
-        total: Math.round(total * 100) / 100 // Round to 2 decimal places
-      }))
-      .sort((a, b) => {
-        if (timePeriod === 'month') return a.period.localeCompare(b.period)
-        return new Date(a.period).getTime() - new Date(b.period).getTime()
-      })
-  }
-
-
-
-    // Combine actual and forecast data for the chart
-  const prepareCombinedChartData = (): ChartDataPoint[] => {
-    const actualData = prepareTimeSeriesData()
-
-    // Get forecast data from cache for current time period
-    const forecastData = forecastCache[timePeriod]
-
-    if (!forecastData) {
-      return actualData.map(point => ({
-        period: point.period,
-        total: point.total
-      }))
-    }
-
-    // Get forecast data from the response
-    const forecastArray: ForecastData[] = forecastData.forecast || []
-
-    if (forecastArray.length === 0) {
-      return actualData.map(point => ({
-        period: point.period,
-        total: point.total
-      }))
-    }
-
-    // Combine the data, ensuring forecast starts after actual data ends
-    const combinedData: ChartDataPoint[] = actualData.map(point => ({
-      period: point.period,
-      total: point.total
-    }))
-
-    // Add forecast data with null actual values and actual forecast values
-    forecastArray.forEach(forecastPoint => {
-      combinedData.push({
-        period: forecastPoint.period,
-        total: null, // This will be the actual sales line (null for forecast periods)
-        forecast: forecastPoint.total // This will be the forecast line
-      })
-    })
-
-    return combinedData.sort((a, b) => {
-      if (timePeriod === 'month') return a.period.localeCompare(b.period)
-      return new Date(a.period).getTime() - new Date(b.period).getTime()
-    })
-  }
-
-  const { chartData, categoryTotals } = calculateChartData()
-  const timeSeriesData = prepareTimeSeriesData()
-  const combinedChartData = prepareCombinedChartData()
+  const categoryTotals = calculateTotals()
+  const totalSales = Object.values(salesData).flat().reduce((sum, category) => sum + category.total_amount, 0)
+  const positiveSales = Object.values(salesData).flat().reduce((sum, category) => sum + Math.max(0, category.total_amount), 0)
+  const negativeSales = Math.abs(Object.values(salesData).flat().reduce((sum, category) => sum + Math.min(0, category.total_amount), 0))
 
   // Generate forecast using ChatGPT service
   const generateForecast = useCallback(async () => {
-    if (timeSeriesData.length === 0) {
+    // Check if we have sales data
+    if (Object.keys(salesData).length === 0) {
       setError('No data available for forecasting')
       return
     }
@@ -241,6 +126,52 @@ function App() {
     setError(null)
 
     try {
+      // Prepare time series data for forecasting
+      const prepareTimeSeriesData = () => {
+        const groupedData: { [key: string]: number } = {}
+
+        Object.entries(salesData).forEach(([dateStr, categories]) => {
+          const date = new Date(dateStr)
+          let periodKey = ''
+
+          switch (timePeriod) {
+            case 'day':
+              periodKey = date.toISOString().split('T')[0] // YYYY-MM-DD
+              break
+            case 'week': {
+              const weekStart = new Date(date)
+              weekStart.setDate(date.getDate() - date.getDay()) // Start of week (Sunday)
+              periodKey = weekStart.toISOString().split('T')[0]
+              break
+            }
+            case 'month':
+              periodKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}` // YYYY-MM
+              break
+          }
+
+          // Calculate total sales for this period
+          const periodTotal = categories.reduce((sum, category) => sum + category.total_amount, 0)
+
+          if (groupedData[periodKey]) {
+            groupedData[periodKey] += periodTotal
+          } else {
+            groupedData[periodKey] = periodTotal
+          }
+        })
+
+        return Object.entries(groupedData)
+          .map(([period, total]) => ({
+            period,
+            total: Math.round(total * 100) / 100 // Round to 2 decimal places
+          }))
+          .sort((a, b) => {
+            if (timePeriod === 'month') return a.period.localeCompare(b.period)
+            return new Date(a.period).getTime() - new Date(b.period).getTime()
+          })
+      }
+
+      const timeSeriesData = prepareTimeSeriesData()
+
       // Prepare data for forecasting
       const forecastRequest = {
         timeSeriesData: timeSeriesData,
@@ -275,11 +206,7 @@ function App() {
     } finally {
       setIsGeneratingForecast(false)
     }
-  }, [timeSeriesData, timePeriod])
-
-  const totalSales = Object.values(salesData).flat().reduce((sum, category) => sum + category.total_amount, 0)
-  const positiveSales = Object.values(salesData).flat().reduce((sum, category) => sum + Math.max(0, category.total_amount), 0)
-  const negativeSales = Math.abs(Object.values(salesData).flat().reduce((sum, category) => sum + Math.min(0, category.total_amount), 0))
+  }, [salesData, timePeriod])
 
   // Prepare table data
   const tableData = Object.entries(categoryTotals)
@@ -303,7 +230,7 @@ function App() {
         onGenerateForecast={generateForecast}
         isGeneratingForecast={isGeneratingForecast}
         hasForecastData={!!forecastCache[timePeriod]}
-        hasTimeSeriesData={timeSeriesData.length > 0}
+        hasTimeSeriesData={Object.keys(salesData).length > 0}
       />
 
       <ErrorAlert error={error} />
@@ -312,30 +239,25 @@ function App() {
         totalSales={totalSales}
         positiveSales={positiveSales}
         negativeSales={negativeSales}
-        formatCurrency={formatCurrency}
       />
 
       <SalesTrendChart
         timePeriod={timePeriod}
-        chartData={combinedChartData}
-        hasForecastData={!!forecastCache[timePeriod]}
-        formatCurrency={formatCurrency}
+        salesData={salesData}
+        forecastCache={forecastCache}
       />
 
       <CategoryChart
-        chartData={chartData}
-        formatCurrency={formatCurrency}
+        salesData={salesData}
       />
 
       <CategoryBreakdownTable
         tableData={tableData}
-        formatCurrency={formatCurrency}
       />
 
       <ForecastTable
         timePeriod={timePeriod}
         forecastCache={forecastCache}
-        formatCurrency={formatCurrency}
       />
     </Container>
   )
