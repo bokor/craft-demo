@@ -17,8 +17,7 @@ import (
 type ForecastRequest struct {
 	TimeSeriesData []TimeSeriesPoint `json:"timeSeriesData"`
 	// TimePeriod is now optional - if not specified, all periods will be generated
-	TimePeriod        string `json:"timePeriod,omitempty"`
-	PeriodsToForecast int    `json:"periodsToForecast,omitempty"`
+	TimePeriod string `json:"timePeriod,omitempty"`
 }
 
 // TimeSeriesPoint represents a single data point in the time series
@@ -88,6 +87,8 @@ func GenerateSalesForecast(c echo.Context) error {
 			"error": "No time series data provided",
 		})
 	}
+
+	log.Printf("Request: %+v", request)
 
 	// Determine the time period to forecast (default to month if not specified)
 	timePeriod := request.TimePeriod

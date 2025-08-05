@@ -144,9 +144,6 @@ const docTemplate = `{
         "services.ForecastRequest": {
             "type": "object",
             "properties": {
-                "periodsToForecast": {
-                    "type": "integer"
-                },
                 "timePeriod": {
                     "description": "TimePeriod is now optional - if not specified, all periods will be generated",
                     "type": "string"
