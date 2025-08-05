@@ -88,8 +88,6 @@ func GenerateSalesForecast(c echo.Context) error {
 		})
 	}
 
-	log.Printf("Request: %+v", request)
-
 	// Determine the time period to forecast (default to month if not specified)
 	timePeriod := request.TimePeriod
 	if timePeriod == "" {
