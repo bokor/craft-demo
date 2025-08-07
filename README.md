@@ -2,6 +2,9 @@
 
 A comprehensive sales analytics and forecasting platform built with Go (backend) and React (frontend). This application provides real-time sales reporting, category analysis, and AI-powered sales forecasting using ChatGPT integration.
 
+<img width="1691" height="1162" alt="Screenshot 2025-08-07 at 11 00 13 AM" src="https://github.com/user-attachments/assets/a8396973-a8aa-488f-83c5-7ff4ad18b969" />
+
+
 ## 🚀 Features
 
 - **Sales Analytics Dashboard**: Real-time sales data visualization with interactive charts
